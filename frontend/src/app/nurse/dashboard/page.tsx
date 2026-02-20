@@ -1,61 +1,93 @@
 "use client";
 
-import { TopBar } from "@/components/dashboard/TopBar";
-import { DashboardCard } from "@/components/dashboard/DashboardCard";
+import { useEffect, useState } from "react";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { useApi } from "@/hooks/useApi";
+import type { ApiError } from "@/lib/api";
+
+interface Appointment {
+  id: string;
+  time: string;
+  mode: string;
+  status: string;
+  patientName: string;
+  patientPhone: string;
+  dermatologyHistory: string | null;
+  doctorName: string;
+}
 
 export default function NurseDashboardPage() {
+  const { fetch } = useApi();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetch<Appointment[]>("/nurse/appointments");
+        setAppointments(data);
+      } catch (err) {
+        setError((err as ApiError).message ?? "Failed to load appointments.");
+        setAppointments([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [fetch]);
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <TopBar
-        title="Nurse Dashboard"
-        roleLabel="Nurse"
-        description="Prepare patients and support consultations."
-      />
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard title="Today's patients" value={appointments.length} icon="👥" accent="teal" />
+        <StatCard title="Confirmed" value={appointments.filter((a) => a.status === "Confirmed").length} icon="✓" accent="emerald" />
+        <StatCard title="Virtual" value={appointments.filter((a) => a.mode === "Virtual").length} icon="🎥" accent="blue" />
+      </div>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="grid gap-6 md:grid-cols-3">
-          <DashboardCard
-            title="Patients to prepare"
-            accent="teal"
-            icon="🩺"
-            subtitle="Today&apos;s consultation queue"
-          >
-            <p className="text-slate-700">
-              View patients requiring preparation, vitals, or imaging before they see the dermatologist.
-            </p>
-          </DashboardCard>
+      <h2 className="text-lg font-bold text-slate-900">Today&apos;s queue</h2>
 
-          <DashboardCard
-            title="Vitals & observations"
-            accent="sky"
-            icon="📋"
-            subtitle="Update clinical notes"
-          >
-            <p className="text-slate-700">
-              Record vitals, lesion descriptions, and observations to attach to patient medical records.
-            </p>
-          </DashboardCard>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-full">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Time</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Patient</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Doctor</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Mode</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Dermatology history</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading...</td></tr>
+            ) : appointments.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">No patients scheduled for today.</td></tr>
+            ) : (
+              appointments.map((a) => (
+                <tr key={a.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-900">{a.time}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-900">{a.patientName}</div>
+                    {a.patientPhone && <div className="text-xs text-slate-500">{a.patientPhone}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{a.doctorName}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${a.mode === "Virtual" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>{a.mode}</span>
+                  </td>
+                  <td className="max-w-xs px-4 py-3 text-sm text-slate-600">
+                    {a.dermatologyHistory ? <span className="line-clamp-2">{a.dermatologyHistory}</span> : <span className="text-slate-400">—</span>}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          <DashboardCard
-            title="Follow-up reminders"
-            accent="amber"
-            icon="🔔"
-            subtitle="Ongoing care support"
-          >
-            <p className="text-slate-700">
-              See which patients need follow-up contact or lab result notifications.
-            </p>
-          </DashboardCard>
-        </div>
-
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900">Today&apos;s patients</h2>
-          <p className="mt-1 text-sm text-slate-600">Patients scheduled for consultation</p>
-          <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50/50 p-8 text-center text-slate-500">
-            No patients in queue. Connect to the appointments API to see the full list.
-          </div>
-        </section>
-      </main>
+      {error && <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
     </div>
   );
 }

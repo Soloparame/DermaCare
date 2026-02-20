@@ -1,13 +1,5 @@
 import Link from "next/link";
 
-const roles = [
-  { id: "patient", title: "Patient Portal", description: "Book appointments, upload skin photos, join virtual consultations.", icon: "🩺", href: "/patient/dashboard" },
-  { id: "doctor", title: "Doctor Workspace", description: "Review cases, consult patients online, update records.", icon: "👨‍⚕️", href: "/doctor/dashboard" },
-  { id: "nurse", title: "Nurse Station", description: "Prepare patients, track vitals, support consultations.", icon: "🩹", href: "/nurse/dashboard" },
-  { id: "receptionist", title: "Reception Desk", description: "Manage schedules, confirm bookings, handle walk-ins.", icon: "📋", href: "/receptionist/dashboard" },
-  { id: "admin", title: "Admin Console", description: "Oversee users, roles, reports, and security.", icon: "⚙️", href: "/admin/dashboard" },
-];
-
 export default function Home() {
   return (
     <main className="min-h-screen">
@@ -32,7 +24,7 @@ export default function Home() {
                 </span>
               </h1>
               <p className="max-w-xl text-lg leading-relaxed text-slate-300">
-                One platform for patients, dermatologists, and staff. Book visits, run virtual 
+                One platform for patients, dermatologists, and staff. Book visits, run virtual
                 consultations, and keep all dermatology records secure in one place.
               </p>
               <div className="flex flex-wrap gap-4">
@@ -72,47 +64,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Role cards */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-8">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
-            Workspaces for every role
-          </h2>
-          <p className="mx-auto mt-2 max-w-2xl text-slate-600">
-            Whether you&apos;re a patient or staff, there&apos;s a tailored dashboard for you.
-          </p>
-        </div>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {roles.map((role) => (
-            <Link
-              key={role.id}
-              href={role.href}
-              className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-teal-200 hover:shadow-xl hover:shadow-teal-100/50"
-            >
-              <span className="text-3xl">{role.icon}</span>
-              <h3 className="mt-4 font-semibold text-slate-900 group-hover:text-teal-700">
-                {role.title}
-              </h3>
-              <p className="mt-2 flex-1 text-sm text-slate-600">
-                {role.description}
-              </p>
-              <span className="mt-4 inline-flex items-center text-sm font-semibold text-teal-600 group-hover:text-teal-700">
-                Open workspace
-                <span className="ml-1">→</span>
-              </span>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <Link
-            href="/auth/login"
-            className="text-sm font-semibold text-teal-600 hover:text-teal-700"
-          >
-            Sign in to access dashboards →
-          </Link>
         </div>
       </section>
 

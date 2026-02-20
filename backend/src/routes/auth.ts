@@ -67,12 +67,19 @@ router.post("/register", async (req: Request, res: Response) => {
 
       if (role === "patient") {
         await client.query(
-          `
-          INSERT INTO patients (user_id, dermatology_history)
-          VALUES ($1, $2)
-        `,
+          "INSERT INTO patients (user_id, dermatology_history) VALUES ($1, $2)",
           [userId, dermatologyHistory ?? null]
         );
+      }
+      if (role === "doctor") {
+        try {
+          await client.query(
+            "INSERT INTO doctor_profiles (user_id, specialization) VALUES ($1, 'Dermatology')",
+            [userId]
+          );
+        } catch {
+          // doctor_profiles table may not exist yet
+        }
       }
 
       return res.status(201).json({ id: userId });
@@ -144,6 +151,45 @@ router.post("/login", async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ message: "Failed to sign in. Please try again later." });
+  }
+});
+
+// GET /api/auth/me - current user info (requires valid token)
+router.get("/me", async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Not authenticated." });
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    const { verifyToken } = await import("../auth");
+    const payload = verifyToken(token);
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        `SELECT id, role, full_name, email, phone, date_of_birth, gender, created_at
+         FROM users WHERE id = $1`,
+        [payload.userId]
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "User not found." });
+      }
+      const u = result.rows[0];
+      return res.json({
+        id: u.id,
+        role: u.role,
+        fullName: u.full_name,
+        email: u.email,
+        phone: u.phone,
+        dateOfBirth: u.date_of_birth,
+        gender: u.gender,
+        createdAt: u.created_at,
+      });
+    } finally {
+      client.release();
+    }
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired token." });
   }
 });
 

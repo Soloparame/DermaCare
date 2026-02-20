@@ -4,12 +4,16 @@ import path from "path";
 // Load .env from backend folder explicitly (fixes cwd/path issues)
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
 import express, { Request, Response, NextFunction } from "express";
 
 import authRoutes from "./routes/auth";
 import patientRoutes from "./routes/patient";
 import doctorRoutes from "./routes/doctor";
+import receptionistRoutes from "./routes/receptionist";
+import nurseRoutes from "./routes/nurse";
+import adminRoutes from "./routes/admin";
+import doctorsRoutes from "./routes/shared";
 import { testConnection } from "./db";
 
 const app = express();
@@ -41,12 +45,24 @@ validateEnv();
    🔧 MIDDLEWARE
 =========================== */
 
-app.use(
-  cors({
-    origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
-    credentials: false,
-  })
-);
+const corsOptions: CorsOptions = {
+  origin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
+  credentials: false,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", (corsOptions.origin as string) ?? "*");
+  res.header("Access-Control-Allow-Credentials", String(corsOptions.credentials ?? false));
+  res.header("Access-Control-Allow-Methods", (corsOptions.methods as string[]).join(","));
+  res.header("Access-Control-Allow-Headers", (corsOptions.allowedHeaders as string[]).join(","));
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  return next();
+});
 
 app.use(express.json());
 
@@ -68,6 +84,10 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/patient", patientRoutes);
 app.use("/api/doctor", doctorRoutes);
+app.use("/api/receptionist", receptionistRoutes);
+app.use("/api/nurse", nurseRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/doctors", doctorsRoutes);
 
 /* ===========================
    🚨 GLOBAL ERROR HANDLER

@@ -18,7 +18,8 @@ export function requireAuth(allowedRoles?: UserRole[]) {
     try {
       const payload = verifyToken(token);
 
-      if (allowedRoles && !allowedRoles.includes(payload.role)) {
+      // Admin can access any role-specific endpoint
+      if (allowedRoles && !allowedRoles.includes(payload.role) && payload.role !== "admin") {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 

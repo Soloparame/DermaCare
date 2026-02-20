@@ -1,11 +1,35 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_URL) || "http://localhost:4000/api";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface ApiError {
   message: string;
   status?: number;
+}
+
+async function getErrorMessage(res: Response, fallback: string): Promise<string> {
+  const statusMessages: Record<number, string> = {
+    400: "Invalid request. Please check your input.",
+    401: "Please sign in to continue.",
+    403: "You don't have permission for this action.",
+    404: "The requested resource was not found.",
+    409: "This action conflicts with existing data.",
+    500: "Server error. Please try again later.",
+  };
+  let message = statusMessages[res.status] ?? fallback;
+  try {
+    const text = await res.text();
+    if (text) {
+      const data = JSON.parse(text) as { message?: string };
+      if (data?.message && typeof data.message === "string") {
+        return data.message;
+      }
+    }
+  } catch {
+    // Use fallback
+  }
+  return message;
 }
 
 export async function apiFetch<TResponse, TBody = unknown>(
@@ -26,29 +50,31 @@ export async function apiFetch<TResponse, TBody = unknown>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    // For client components, this will use the browser fetch.
-    // For server components you can customize caching here if needed.
-  });
-
-  if (!res.ok) {
-    let message = "Unexpected error";
-    try {
-      const data = (await res.json()) as { message?: string };
-      if (data?.message) {
-        message = data.message;
-      }
-    } catch {
-      // ignore JSON parsing issues, keep default message
-    }
-    const error: ApiError = { message, status: res.status };
-    throw error;
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Network error";
+    throw { message: `Cannot reach server. ${msg} Ensure backend is running at ${API_BASE_URL.replace("/api", "")}.`, status: 0 } as ApiError;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return (await res.json()) as TResponse;
+  if (!res.ok) {
+    const msg = await getErrorMessage(res, "An error occurred. Please try again.");
+    throw { message: msg, status: res.status } as ApiError;
+  }
+
+  const text = await res.text();
+  if (!text || text.trim() === "") {
+    return undefined as TResponse;
+  }
+  try {
+    return JSON.parse(text) as TResponse;
+  } catch {
+    throw { message: "Invalid response from server.", status: res.status } as ApiError;
+  }
 }
 
