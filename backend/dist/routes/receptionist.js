@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
 const requireAuth_1 = require("../middleware/requireAuth");
+const memory_1 = require("../memory");
 const router = (0, express_1.Router)();
 // GET /api/receptionist/patients - list all patients (for booking)
 router.get("/patients", (0, requireAuth_1.requireAuth)(["receptionist", "admin"]), async (_req, res) => {
@@ -142,6 +143,41 @@ router.get("/stats", (0, requireAuth_1.requireAuth)(["receptionist", "admin"]), 
     catch (err) {
         console.error("Error in GET /receptionist/stats:", err);
         return res.status(500).json({ message: "Failed to load stats." });
+    }
+});
+router.get("/availability", (0, requireAuth_1.requireAuth)(["receptionist", "admin", "doctor"]), async (req, res) => {
+    const doctorId = req.query.doctor_id;
+    const date = req.query.date;
+    if (!doctorId || !date)
+        return res.status(400).json({ message: "doctor_id and date are required." });
+    try {
+        try {
+            const dayStart = `${date}T00:00:00Z`;
+            const dayEnd = `${date}T23:59:59Z`;
+            const result = await db_1.pool.query("SELECT appointment_date FROM appointments WHERE doctor_user_id = $1 AND appointment_date BETWEEN $2 AND $3", [doctorId, dayStart, dayEnd]);
+            const taken = new Set(result.rows.map((r) => new Date(r.appointment_date).toISOString().slice(11, 16)));
+            const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"].map((t) => ({ time: t, available: !taken.has(t) }));
+            return res.json({ slots });
+        }
+        catch {
+            const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"].map((t) => ({ time: t, available: true }));
+            return res.json({ slots });
+        }
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to load availability." });
+    }
+});
+router.post("/queue/checkin", (0, requireAuth_1.requireAuth)(["receptionist", "admin"]), async (req, res) => {
+    const { doctorUserId, appointmentId } = req.body;
+    if (!doctorUserId || !appointmentId)
+        return res.status(400).json({ message: "doctorUserId and appointmentId required." });
+    try {
+        const item = memory_1.mem.checkIn(doctorUserId, appointmentId);
+        return res.status(201).json(item);
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to check in." });
     }
 });
 exports.default = router;

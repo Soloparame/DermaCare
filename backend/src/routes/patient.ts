@@ -2,6 +2,8 @@ import type { Request, Response, Router } from "express";
 import { Router as createRouter } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
+import { mem } from "../memory";
+import { broadcast } from "../events";
 
 const router: Router = createRouter();
 
@@ -230,5 +232,116 @@ router.post(
   }
 );
 
-export default router;
+router.post("/preassessment", requireAuth(["patient", "admin"]), async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ message: "Not authenticated." });
+  const answers = req.body ?? {};
+  const triageScore = Array.isArray(answers?.symptoms) ? Math.min(10, answers.symptoms.length + (answers?.severity ?? 0)) : 1;
+  try {
+    try {
+      const result = await pool.query(
+        "INSERT INTO preassessments (patient_user_id, answers_json, triage_score) VALUES ($1, $2, $3) RETURNING id, triage_score, created_at",
+        [userId, answers, triageScore]
+      );
+      return res.status(201).json({ id: result.rows[0].id, triageScore: result.rows[0].triage_score, createdAt: result.rows[0].created_at });
+    } catch {
+      const rec = mem.addPreassessment(userId, answers, triageScore);
+      return res.status(201).json({ id: rec.id, triageScore: rec.triageScore, createdAt: rec.createdAt });
+    }
+  } catch {
+    return res.status(500).json({ message: "Failed to submit pre‑assessment." });
+  }
+});
 
+router.get("/appointments/:id/status", requireAuth(["patient", "admin"]), async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ message: "Not authenticated." });
+  const { id } = req.params;
+  try {
+    try {
+      const result = await pool.query(
+        "SELECT status, appointment_date, mode, checkin_at FROM appointments a JOIN patients p ON a.patient_id = p.id JOIN users u ON p.user_id = u.id WHERE a.id = $1 AND u.id = $2",
+        [id, userId]
+      );
+      if (result.rowCount === 0) return res.status(404).json({ message: "Appointment not found." });
+      const row = result.rows[0];
+      return res.json({ status: row.status ?? "Pending", mode: row.mode ?? "In-person", appointmentDate: row.appointment_date, checkinAt: row.checkin_at ?? null });
+    } catch {
+      return res.json({ status: "Pending", mode: "In-person", appointmentDate: null, checkinAt: null });
+    }
+  } catch {
+    return res.status(500).json({ message: "Failed to get status." });
+  }
+});
+
+router.post("/cases/:caseId/images", requireAuth(["patient", "admin"]), async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ message: "Not authenticated." });
+  const caseId = String(req.params.caseId);
+  const { fileUrl, notes } = req.body as { fileUrl?: string; notes?: string | null };
+  if (!fileUrl) return res.status(400).json({ message: "fileUrl required." });
+  try {
+    try {
+      const result = await pool.query(
+        "INSERT INTO case_images (case_id, file_url, notes) VALUES ($1, $2, $3) RETURNING id, file_url, created_at",
+        [caseId, fileUrl, notes ?? null]
+      );
+      return res.status(201).json({ id: result.rows[0].id, fileUrl: result.rows[0].file_url, createdAt: result.rows[0].created_at });
+    } catch {
+      const rec = mem.addCaseImage(caseId, fileUrl, notes ?? null);
+      return res.status(201).json({ id: rec.id, fileUrl: rec.fileUrl, createdAt: rec.capturedAt });
+    }
+  } catch {
+    return res.status(500).json({ message: "Failed to upload image." });
+  }
+});
+
+router.get("/appointments/:id/avs", requireAuth(["patient", "admin"]), async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ message: "Not authenticated." });
+  const { id } = req.params;
+  try {
+    try {
+      const result = await pool.query(
+        "SELECT a.mode, d.full_name AS doctor_name FROM appointments a JOIN users d ON a.doctor_user_id = d.id WHERE a.id = $1",
+        [id]
+      );
+      const r = result.rows[0] ?? { mode: "In-person", doctor_name: "Doctor" };
+      const content = `Thank you for your visit. Mode: ${r.mode}. Doctor: ${r.doctor_name}. Cleanse gently, apply prescribed medication, avoid irritants, and schedule follow‑up as advised.`;
+      return res.json({ appointmentId: id, content });
+    } catch {
+      const content = "Thank you for your visit. Follow care instructions and take prescribed medication. Schedule a follow‑up as advised.";
+      return res.json({ appointmentId: id, content });
+    }
+  } catch {
+    return res.status(500).json({ message: "Failed to load care instructions." });
+  }
+});
+
+router.get("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req: Request, res: Response) => {
+  const appointmentId = String(req.params.appointmentId);
+  try {
+    const arr = mem.messages.get(appointmentId) ?? [];
+    return res.json(arr);
+  } catch {
+    return res.status(500).json({ message: "Failed to load messages." });
+  }
+});
+
+router.post("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req: Request, res: Response) => {
+  const role = req.user?.role ?? "patient";
+  const appointmentId = String(req.params.appointmentId);
+  const { content } = req.body as { content?: string };
+  if (!content || content.trim() === "") return res.status(400).json({ message: "content required." });
+  try {
+    const msg = mem.addMessage(appointmentId, role, content);
+    try {
+      broadcast("chat_message", { appointmentId, senderRole: role, content: msg.content, at: msg.createdAt });
+    } catch {}
+    return res.status(201).json(msg);
+  } catch {
+    return res.status(500).json({ message: "Failed to send message." });
+  }
+});
+
+export default router;

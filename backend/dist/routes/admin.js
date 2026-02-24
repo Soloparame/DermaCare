@@ -93,4 +93,29 @@ router.get("/stats", (0, requireAuth_1.requireAuth)(["admin"]), async (_req, res
         return res.status(500).json({ message: "Failed to load stats." });
     }
 });
+router.post("/notifications/test", (0, requireAuth_1.requireAuth)(["admin"]), async (req, res) => {
+    const { userId, type, payload } = req.body;
+    if (!userId || !type)
+        return res.status(400).json({ message: "userId and type required." });
+    try {
+        const url = process.env.NOTIFY_WEBHOOK_URL;
+        if (url) {
+            try {
+                await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId, type, payload, at: new Date().toISOString() }),
+                });
+                return res.status(201).json({ status: "sent" });
+            }
+            catch {
+                return res.status(201).json({ status: "queued" });
+            }
+        }
+        return res.status(201).json({ status: "queued" });
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to queue notification." });
+    }
+});
 exports.default = router;

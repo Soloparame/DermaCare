@@ -17,7 +17,7 @@ const accentClasses: Record<NonNullable<StatCardProps["accent"]>, string> = {
 
 export function StatCard({ title, value, subtitle, icon, accent = "slate" }: StatCardProps) {
   return (
-    <div className={`rounded-xl border px-5 py-4 ${accentClasses[accent]}`}>
+    <div className={`rounded-xl border px-5 py-4 shadow-sm transition hover:shadow-md ${accentClasses[accent]}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium opacity-90">{title}</p>

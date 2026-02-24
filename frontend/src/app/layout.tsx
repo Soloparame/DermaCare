@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DermaCare Online | Virtual Dermatology & Appointments",
+  title: "DermaCare Online | Skin Consultations & Dermatology Clinic",
   description:
-    "Web-based online dermatology and appointment platform with virtual consultations, integrated roles, and patient portal.",
+    "Online dermatology clinic. Book skin consultations, chat with receptionist, nurse, and dermatologist. Virtual or in-person visits.",
 };
 
 export default function RootLayout({

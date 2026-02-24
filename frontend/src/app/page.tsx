@@ -50,12 +50,12 @@ export default function Home() {
                 </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="rounded-xl bg-teal-500/20 p-4 ring-1 ring-teal-400/20">
-                    <p className="text-2xl font-bold text-white">12</p>
-                    <p className="text-sm text-teal-200">Available slots today</p>
+                    <p className="text-2xl font-bold text-white">24/7</p>
+                    <p className="text-sm text-teal-200">Online consultations</p>
                   </div>
                   <div className="rounded-xl bg-slate-700/50 p-4 ring-1 ring-slate-600/50">
-                    <p className="text-2xl font-bold text-white">5</p>
-                    <p className="text-sm text-slate-300">New appointments</p>
+                    <p className="text-2xl font-bold text-white">✓</p>
+                    <p className="text-sm text-slate-300">Receptionist confirms first</p>
                   </div>
                 </div>
                 <div className="mt-4 rounded-xl bg-slate-700/30 p-4">
@@ -79,9 +79,9 @@ export default function Home() {
                 1
               </span>
               <div>
-                <h3 className="font-semibold text-slate-900">Register & book</h3>
+                <h3 className="font-semibold text-slate-900">Register & book consultation</h3>
                 <p className="mt-1 text-sm text-slate-600">
-                  Create an account, choose a dermatologist, and pick an available slot.
+                  Create an account, choose a dermatologist, and book your skin consultation.
                 </p>
               </div>
             </div>
@@ -90,9 +90,9 @@ export default function Home() {
                 2
               </span>
               <div>
-                <h3 className="font-semibold text-slate-900">Consult in-person or online</h3>
+                <h3 className="font-semibold text-slate-900">Reception confirms, then dermatologist</h3>
                 <p className="mt-1 text-sm text-slate-600">
-                  Join via Google Meet or visit the clinic. Doctors have full access to your records.
+                  Your consultation is confirmed by reception first. Then your dermatologist reviews your case.
                 </p>
               </div>
             </div>

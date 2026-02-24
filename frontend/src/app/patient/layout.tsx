@@ -9,7 +9,7 @@ export default function PatientLayout({
     <DashboardLayout
       title="Patient Portal"
       role="patient"
-      description="Book appointments and manage your care"
+      description="Skin consultations, care team chat, and medical history"
     >
       {children}
     </DashboardLayout>

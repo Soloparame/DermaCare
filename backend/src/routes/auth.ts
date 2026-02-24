@@ -154,7 +154,7 @@ router.post("/login", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/auth/me - current user info (requires valid token)
+// GET /api/auth/me - current user info with role-specific profile (requires valid token)
 router.get("/me", async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -174,8 +174,17 @@ router.get("/me", async (req: Request, res: Response) => {
       if (result.rowCount === 0) {
         return res.status(404).json({ message: "User not found." });
       }
-      const u = result.rows[0];
-      return res.json({
+      const u = result.rows[0] as {
+        id: string;
+        role: string;
+        full_name: string;
+        email: string;
+        phone: string | null;
+        date_of_birth: string | null;
+        gender: string | null;
+        created_at: string;
+      };
+      const profile: Record<string, unknown> = {
         id: u.id,
         role: u.role,
         fullName: u.full_name,
@@ -184,7 +193,42 @@ router.get("/me", async (req: Request, res: Response) => {
         dateOfBirth: u.date_of_birth,
         gender: u.gender,
         createdAt: u.created_at,
-      });
+      };
+      if (u.role === "patient") {
+        try {
+          const pp = await client.query(
+            `SELECT pp.address, pp.emergency_contact, pp.allergies
+             FROM patient_profiles pp JOIN patients p ON pp.patient_id = p.id
+             WHERE p.user_id = $1`,
+            [u.id]
+          );
+          if (pp.rows[0]) {
+            const r = pp.rows[0] as { address?: string; emergency_contact?: string; allergies?: string };
+            profile.address = r.address ?? null;
+            profile.emergencyContact = r.emergency_contact ?? null;
+            profile.allergies = r.allergies ?? null;
+          }
+        } catch {
+          /* patient_profiles may not exist */
+        }
+      }
+      if (u.role === "doctor") {
+        try {
+          const dp = await client.query(
+            "SELECT specialization, bio, consultation_fee FROM doctor_profiles WHERE user_id = $1",
+            [u.id]
+          );
+          if (dp.rows[0]) {
+            const r = dp.rows[0] as { specialization?: string; bio?: string; consultation_fee?: number };
+            profile.specialization = r.specialization ?? "Dermatology";
+            profile.bio = r.bio ?? null;
+            profile.consultationFee = r.consultation_fee ?? null;
+          }
+        } catch {
+          /* doctor_profiles may not exist */
+        }
+      }
+      return res.json(profile);
     } finally {
       client.release();
     }

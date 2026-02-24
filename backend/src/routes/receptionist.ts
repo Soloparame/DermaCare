@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { Router as createRouter } from "express";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/requireAuth";
+import { mem } from "../memory";
 
 const router = createRouter();
 
@@ -160,6 +161,17 @@ router.get("/stats", requireAuth(["receptionist", "admin"]), async (_req: Reques
   } catch (err) {
     console.error("Error in GET /receptionist/stats:", err);
     return res.status(500).json({ message: "Failed to load stats." });
+  }
+});
+
+router.post("/queue/checkin", requireAuth(["receptionist", "admin"]), async (req: Request, res: Response) => {
+  const { doctorUserId, appointmentId } = req.body as { doctorUserId?: string; appointmentId?: string };
+  if (!doctorUserId || !appointmentId) return res.status(400).json({ message: "doctorUserId and appointmentId required." });
+  try {
+    const item = mem.checkIn(doctorUserId, appointmentId);
+    return res.status(201).json(item);
+  } catch {
+    return res.status(500).json({ message: "Failed to check in." });
   }
 });
 

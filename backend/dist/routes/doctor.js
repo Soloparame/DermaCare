@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
 const requireAuth_1 = require("../middleware/requireAuth");
+const memory_1 = require("../memory");
 const router = (0, express_1.Router)();
 // GET /api/doctor/appointments
 router.get("/appointments", (0, requireAuth_1.requireAuth)(["doctor"]), async (req, res) => {
@@ -118,6 +119,92 @@ router.get("/patients", (0, requireAuth_1.requireAuth)(["doctor", "admin"]), asy
     catch (err) {
         console.error("Error in GET /doctor/patients:", err);
         return res.status(500).json({ message: "Failed to load patients." });
+    }
+});
+router.get("/dashboard", (0, requireAuth_1.requireAuth)(["doctor", "admin"]), async (req, res) => {
+    const userId = req.user?.userId;
+    if (!userId)
+        return res.status(401).json({ message: "Not authenticated." });
+    try {
+        try {
+            const today = new Date().toISOString().split("T")[0];
+            const [todayRes, pendingRes, confirmedRes] = await Promise.all([
+                db_1.pool.query("SELECT COUNT(*)::int AS c FROM appointments WHERE doctor_user_id = $1 AND appointment_date::date = $2", [userId, today]),
+                db_1.pool.query("SELECT COUNT(*)::int AS c FROM appointments WHERE doctor_user_id = $1 AND status = 'Pending'", [userId]),
+                db_1.pool.query("SELECT COUNT(*)::int AS c FROM appointments WHERE doctor_user_id = $1 AND status = 'Confirmed'", [userId]),
+            ]);
+            return res.json({ today: todayRes.rows[0]?.c ?? 0, pending: pendingRes.rows[0]?.c ?? 0, confirmed: confirmedRes.rows[0]?.c ?? 0 });
+        }
+        catch {
+            return res.json({ today: 0, pending: 0, confirmed: 0 });
+        }
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to load dashboard." });
+    }
+});
+router.get("/patients/:id/summary", (0, requireAuth_1.requireAuth)(["doctor", "admin"]), async (req, res) => {
+    const { id } = req.params;
+    try {
+        try {
+            const basic = await db_1.pool.query("SELECT id, full_name, email, phone, date_of_birth, gender FROM users WHERE id = $1", [id]);
+            const mr = await db_1.pool.query("SELECT id, notes, diagnosis, prescriptions, created_at FROM medical_records WHERE patient_id IN (SELECT p.id FROM patients p WHERE p.user_id = $1) ORDER BY created_at DESC LIMIT 5", [id]);
+            const images = await db_1.pool.query("SELECT file_url, created_at FROM case_images WHERE case_id IN (SELECT id FROM cases WHERE patient_id IN (SELECT p.id FROM patients p WHERE p.user_id = $1)) ORDER BY created_at DESC LIMIT 4", [id]);
+            return res.json({ basic: basic.rows[0] ?? null, recentRecords: mr.rows ?? [], recentImages: images.rows ?? [] });
+        }
+        catch {
+            return res.json({ basic: null, recentRecords: [], recentImages: [] });
+        }
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to load summary." });
+    }
+});
+router.post("/prescriptions", (0, requireAuth_1.requireAuth)(["doctor", "admin"]), async (req, res) => {
+    const doctorId = req.user?.userId;
+    if (!doctorId)
+        return res.status(401).json({ message: "Not authenticated." });
+    const { appointmentId, patientId, items, instructions, startDate, endDate } = req.body;
+    if (!appointmentId || !patientId || !items)
+        return res.status(400).json({ message: "appointmentId, patientId, items required." });
+    try {
+        try {
+            const r = await db_1.pool.query("INSERT INTO rx_prescriptions (appointment_id, patient_id, doctor_id, items_json, instructions, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at", [appointmentId, patientId, doctorId, items, instructions ?? null, startDate ?? null, endDate ?? null]);
+            return res.status(201).json({ id: r.rows[0].id, createdAt: r.rows[0].created_at });
+        }
+        catch {
+            const rec = memory_1.mem.addPrescription(appointmentId, patientId, doctorId, items, instructions ?? null, startDate ?? null, endDate ?? null);
+            return res.status(201).json({ id: rec.id, createdAt: rec.createdAt });
+        }
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to create prescription." });
+    }
+});
+router.post("/appointments/:id/followup", (0, requireAuth_1.requireAuth)(["doctor", "admin"]), async (req, res) => {
+    const doctorId = req.user?.userId;
+    if (!doctorId)
+        return res.status(401).json({ message: "Not authenticated." });
+    const { id } = req.params;
+    const { date, time, mode } = req.body;
+    if (!date || !time)
+        return res.status(400).json({ message: "date and time required." });
+    try {
+        try {
+            const apptDate = new Date(`${date}T${time}:00Z`);
+            const base = await db_1.pool.query("SELECT patient_id FROM appointments WHERE id = $1", [id]);
+            if (base.rowCount === 0)
+                return res.status(404).json({ message: "Base appointment not found." });
+            const patientId = base.rows[0].patient_id;
+            const r = await db_1.pool.query("INSERT INTO appointments (patient_id, doctor_user_id, appointment_date, mode, status) VALUES ($1, $2, $3, $4, 'Pending') RETURNING id, status", [patientId, doctorId, apptDate.toISOString(), mode ?? "In-person"]);
+            return res.status(201).json({ id: r.rows[0].id, status: r.rows[0].status });
+        }
+        catch {
+            return res.status(501).json({ message: "Follow‑up scheduling requires DB support." });
+        }
+    }
+    catch {
+        return res.status(500).json({ message: "Failed to create follow‑up." });
     }
 });
 exports.default = router;

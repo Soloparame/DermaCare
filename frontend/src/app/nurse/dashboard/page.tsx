@@ -47,6 +47,15 @@ export default function NurseDashboardPage() {
         <StatCard title="Virtual" value={appointments.filter((a) => a.mode === "Virtual").length} icon="🎥" accent="blue" />
       </div>
 
+      <div>
+        <a
+          href="/nurse/vitals"
+          className="inline-block rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Record vitals
+        </a>
+      </div>
+
       <h2 className="text-lg font-bold text-slate-900">Today&apos;s queue</h2>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

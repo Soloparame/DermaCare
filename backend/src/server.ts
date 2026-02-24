@@ -15,6 +15,8 @@ import nurseRoutes from "./routes/nurse";
 import adminRoutes from "./routes/admin";
 import doctorsRoutes from "./routes/shared";
 import { testConnection } from "./db";
+import { subscribe } from "./events";
+import { verifyToken } from "./auth";
 
 const app = express();
 
@@ -88,6 +90,22 @@ app.use("/api/receptionist", receptionistRoutes);
 app.use("/api/nurse", nurseRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/doctors", doctorsRoutes);
+
+app.get("/api/events", (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  const qToken = typeof req.query.token === "string" ? (req.query.token as string) : null;
+  const headerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+  const token = qToken ?? headerToken;
+  if (!token) {
+    return res.status(401).json({ message: "Missing or invalid token" });
+  }
+  try {
+    const payload = verifyToken(token);
+    subscribe(res, String(payload.userId));
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+});
 
 /* ===========================
    🚨 GLOBAL ERROR HANDLER

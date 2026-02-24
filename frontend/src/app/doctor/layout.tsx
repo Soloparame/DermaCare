@@ -7,9 +7,9 @@ export default function DoctorLayout({
 }) {
   return (
     <DashboardLayout
-      title="Doctor Workspace"
+      title="Dermatologist Workspace"
       role="doctor"
-      description="Manage appointments and patient records"
+      description="Confirmed consultations, prescriptions, and patient records"
     >
       {children}
     </DashboardLayout>

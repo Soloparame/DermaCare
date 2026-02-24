@@ -94,6 +94,18 @@ export default function PatientDashboardPage() {
         >
           Medical history
         </Link>
+        <Link
+          href="/patient/preassessment"
+          className="rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Pre‑assessment
+        </Link>
+        <Link
+          href="/patient/chat"
+          className="rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Appointment chat
+        </Link>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}

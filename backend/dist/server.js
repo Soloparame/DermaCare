@@ -17,6 +17,8 @@ const nurse_1 = __importDefault(require("./routes/nurse"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const shared_1 = __importDefault(require("./routes/shared"));
 const db_1 = require("./db");
+const events_1 = require("./events");
+const auth_2 = require("./auth");
 const app = (0, express_1.default)();
 /* ===========================
    🔎 ENVIRONMENT VALIDATION
@@ -73,6 +75,20 @@ app.use("/api/receptionist", receptionist_1.default);
 app.use("/api/nurse", nurse_1.default);
 app.use("/api/admin", admin_1.default);
 app.use("/api/doctors", shared_1.default);
+app.get("/api/events", (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Missing or invalid token" });
+    }
+    const token = authHeader.split(" ")[1];
+    try {
+        const payload = (0, auth_2.verifyToken)(token);
+        (0, events_1.subscribe)(res, String(payload.userId));
+    }
+    catch {
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+});
 /* ===========================
    🚨 GLOBAL ERROR HANDLER
 =========================== */
