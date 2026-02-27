@@ -26,6 +26,7 @@ router.get("/appointments", (0, requireAuth_1.requireAuth)(["doctor"]), async (r
           JOIN patients p ON a.patient_id = p.id
           JOIN users pu ON p.user_id = pu.id
           WHERE a.doctor_user_id = $1
+            AND a.status IN ('Confirmed', 'Completed')
           ORDER BY a.appointment_date ASC
           LIMIT 20;
         `, [userId]);
@@ -83,6 +84,14 @@ router.post("/medical-records", (0, requireAuth_1.requireAuth)(["doctor", "admin
         return res.status(400).json({ message: "patientId is required." });
     }
     try {
+        // Ensure the doctor is assigned to this patient (has an appointment with them)
+        const assigned = await db_1.pool.query(`SELECT 1 FROM appointments
+       WHERE patient_id = $1 AND doctor_user_id = $2
+       AND status IN ('Pending','Confirmed','Completed')
+       LIMIT 1`, [patientId, userId]);
+        if (assigned.rowCount === 0) {
+            return res.status(403).json({ message: "You can only add records for patients assigned to you." });
+        }
         const result = await db_1.pool.query(`INSERT INTO medical_records (patient_id, doctor_user_id, notes, diagnosis, prescriptions)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, patient_id, notes, diagnosis, prescriptions, created_at`, [patientId, userId, notes ?? null, diagnosis ?? null, prescriptions ?? null]);
         const row = result.rows[0];

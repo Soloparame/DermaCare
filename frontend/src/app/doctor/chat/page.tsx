@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
 import type { ApiError } from "@/lib/api";
+import { Search, Info, Paperclip, Send, MoreVertical, Phone, Video, MessageSquare } from "lucide-react";
 
 interface Msg {
   id: string;
@@ -10,6 +11,9 @@ interface Msg {
   senderRole: string;
   content: string;
   createdAt: string;
+  attachmentUrl?: string | null;
+  attachmentType?: "image" | "video" | "document" | null;
+  attachmentName?: string | null;
 }
 interface Appointment {
   id: string;
@@ -24,6 +28,7 @@ export default function DoctorChatPage() {
   const [appointmentId, setAppointmentId] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,34 +43,46 @@ export default function DoctorChatPage() {
     })();
   }, [fetch]);
 
-  useEffect(() => {
-    setMessages([]);
-    setError(null);
-  }, [appointmentId]);
-
-  const load = useCallback(async () => {
-    if (!appointmentId) return;
+  const load = useCallback(async (id: string) => {
+    if (!id) return;
     try {
-      const data = await fetch<Msg[]>(`/patient/chat/${appointmentId}/messages`);
+      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages`);
       setMessages(data);
     } catch (e) {
       setError((e as ApiError).message ?? "Failed to load messages.");
     }
-  }, [appointmentId, fetch]);
+  }, [fetch]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (appointmentId) void load(appointmentId);
+  }, [appointmentId, load]);
 
   async function send() {
-    if (!text.trim() || !appointmentId) return;
+    if (!appointmentId || (!text.trim() && !file)) return;
     try {
-      const msg = await fetch<Msg, { content: string }>(`/patient/chat/${appointmentId}/messages`, {
+      let attachmentPayload: { attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string } = {};
+      if (file) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = (e) => reject(e);
+          reader.readAsDataURL(file);
+        });
+        const mime = file.type;
+        const type: "image" | "video" | "document" = mime.startsWith("image")
+          ? "image"
+          : mime.startsWith("video")
+            ? "video"
+            : "document";
+        attachmentPayload = { attachmentUrl: dataUrl, attachmentType: type, attachmentName: file.name };
+      }
+      const msg = await fetch<Msg, { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string }>(`/patient/chat/${appointmentId}/messages`, {
         method: "POST",
-        body: { content: text.trim() },
+        body: { content: text.trim() || undefined, ...attachmentPayload },
       });
-      setMessages((m) => [...m, msg]);
+      setMessages((m) => (m.some((x) => x.id === msg.id) ? m : [...m, msg]));
       setText("");
+      setFile(null);
     } catch (e) {
       setError((e as ApiError).message ?? "Failed to send.");
     }
@@ -84,77 +101,224 @@ export default function DoctorChatPage() {
       try {
         const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg>;
         if (data.appointmentId === appointmentId) {
-          setMessages((m) => [
-            ...m,
-            {
-              id: Math.random().toString(36).slice(2),
-              appointmentId,
-              senderRole: data.senderRole ?? "unknown",
-              content: data.content ?? "",
-              createdAt: new Date().toISOString(),
-            },
-          ]);
+          setMessages((m) => {
+            const id = data.id ?? Math.random().toString(36).slice(2);
+            if (m.some((x) => x.id === id)) return m;
+            return [
+              ...m,
+              {
+                id,
+                appointmentId,
+                senderRole: data.senderRole ?? "unknown",
+                content: data.content ?? "",
+                createdAt: data.createdAt ?? new Date().toISOString(),
+                attachmentUrl: data.attachmentUrl ?? null,
+                attachmentType: (data.attachmentType as Msg["attachmentType"]) ?? null,
+                attachmentName: data.attachmentName ?? null,
+              },
+            ];
+          });
         }
       } catch {
-        /* ignore */
+        // ignore
       }
     });
     return () => es.close();
   }, [appointmentId, getToken]);
 
+  const selectedAppointment = appointments.find((a) => a.id === appointmentId);
+
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <h2 className="text-lg font-bold text-slate-900">Consultation chat</h2>
-      <div>
-        <label className="block text-sm font-medium text-slate-700">Select appointment</label>
-        <select
-          value={appointmentId}
-          onChange={(e) => setAppointmentId(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900"
-        >
-          <option value="">Choose an appointment</option>
-          {appointments.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.date} {a.time} · {a.patientName}
-            </option>
-          ))}
-        </select>
-      </div>
-      {appointmentId && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 max-h-72 overflow-y-auto rounded-lg bg-slate-50 p-3">
-            {messages.map((m) => (
-              <div key={m.id} className="mb-2 rounded-lg bg-white px-3 py-2 shadow-sm">
-                <span className="text-xs font-semibold text-teal-600">{m.senderRole}:</span>
-                <p className="text-sm text-slate-800">{m.content}</p>
-                <span className="text-xs text-slate-500">
-                  {new Date(m.createdAt).toLocaleTimeString()}
-                </span>
-              </div>
-            ))}
-            {messages.length === 0 && (
-              <p className="text-sm text-slate-500">No messages yet.</p>
-            )}
-          </div>
-          <div className="flex gap-2">
+    <div className="flex h-[calc(100vh-10rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/40">
+      {/* Sidebar - Chat List */}
+      <div className="w-80 flex-shrink-0 border-r border-slate-200 bg-[#F8FAFC] flex flex-col relative z-20">
+        <div className="p-5 border-b border-slate-200 bg-white shadow-sm">
+          <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Patient Chats</h2>
+          <div className="mt-4 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
-              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Type a message"
-              onKeyDown={(e) => e.key === "Enter" && send()}
+              type="text"
+              placeholder="Search patients..."
+              className="w-full rounded-full bg-slate-100 py-2.5 pl-10 pr-4 text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:bg-white transition"
             />
-            <button
-              onClick={send}
-              className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white hover:bg-teal-700"
-            >
-              Send
-            </button>
           </div>
         </div>
-      )}
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+
+        <div className="flex-1 overflow-y-auto">
+          {error && <div className="p-4 m-4 rounded-xl bg-red-50 text-xs text-red-600 font-semibold">{error}</div>}
+
+          {appointments.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => {
+                setAppointmentId(a.id);
+              }}
+              className={`w-full text-left p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors flex gap-3 relative ${appointmentId === a.id ? 'bg-white shadow-sm z-10' : ''}`}
+            >
+              {appointmentId === a.id && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500 rounded-r-md"></div>
+              )}
+              <div className="relative h-12 w-12 flex-shrink-0 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                {a.patientName.charAt(0)}
+                <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-indigo-500"></div>
+              </div>
+              <div className="flex-1 overflow-hidden flex flex-col justify-center">
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="font-semibold text-slate-900 truncate">P. {a.patientName}</h3>
+                  <span className="text-[10px] font-medium text-slate-400">{a.date}</span>
+                </div>
+                <p className="text-xs text-slate-500 truncate">Consultation at {a.time}</p>
+              </div>
+            </button>
+          ))}
+          {appointments.length === 0 && !error && (
+            <div className="p-8 text-center text-slate-400 flex flex-col items-center mt-10">
+              <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <MessageSquare className="h-6 w-6 opacity-40 text-slate-600" />
+              </div>
+              <p className="text-sm font-medium">No active patient chats.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      {selectedAppointment ? (
+        <div className="flex-1 flex flex-col bg-[#F0F2F5] relative">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #000 1.5px, transparent 1.5px)', backgroundSize: '24px 24px' }}></div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 bg-white/90 backdrop-blur-md border-b border-slate-200 z-10 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="h-11 w-11 flex-shrink-0 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-sm text-lg">
+                {selectedAppointment.patientName.charAt(0)}
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-800 tracking-tight">Patient: {selectedAppointment.patientName}</h2>
+                <p className="text-xs text-indigo-600 font-medium tracking-wide">Shared securely with care team</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-slate-400">
+              <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><Phone className="h-5 w-5" /></button>
+              <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><Video className="h-5 w-5" /></button>
+              <div className="w-px h-6 bg-slate-200 mx-1"></div>
+              <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><MoreVertical className="h-5 w-5" /></button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 z-10 space-y-4 flex flex-col">
+            {messages.map((m) => {
+              const isMe = m.senderRole === "doctor";
+              return (
+                <div
+                  key={m.id}
+                  className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[70%] rounded-2xl px-4 py-3 shadow-sm relative group ${isMe
+                        ? "bg-teal-600 text-white rounded-tr-sm"
+                        : "bg-white text-slate-800 border border-slate-100 rounded-tl-sm"
+                      }`}
+                  >
+                    {!isMe && (
+                      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-teal-600">
+                        {m.senderRole}
+                      </div>
+                    )}
+
+                    {m.content && <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>}
+
+                    {m.attachmentUrl && m.attachmentType === "image" && (
+                      <img
+                        src={m.attachmentUrl}
+                        alt={m.attachmentName ?? "image"}
+                        className="mt-2 max-h-60 rounded-xl border border-black/5"
+                      />
+                    )}
+                    {m.attachmentUrl && m.attachmentType === "video" && (
+                      <video
+                        src={m.attachmentUrl}
+                        controls
+                        className="mt-2 max-h-60 rounded-xl border border-black/5"
+                      />
+                    )}
+                    {m.attachmentUrl && m.attachmentType === "document" && (
+                      <a
+                        href={m.attachmentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`mt-2 inline-flex items-center gap-2 text-sm font-semibold p-3 rounded-xl border ${isMe ? 'bg-teal-700/50 border-teal-500/30 text-white' : 'bg-slate-50 border-slate-200 text-teal-700'} hover:opacity-80 transition`}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        {m.attachmentName ?? "Document"}
+                      </a>
+                    )}
+
+                    <div className={`mt-2 flex items-center justify-end text-[10px] ${isMe ? 'text-teal-100' : 'text-slate-400'}`}>
+                      {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {messages.length === 0 && (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-200/50">
+                  This is the start of consultation timeline
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <div className="p-4 bg-white/90 backdrop-blur-md border-t border-slate-200 z-10">
+            <div className="flex items-end gap-3 max-w-5xl mx-auto">
+              <button
+                className="p-3 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors flex-shrink-0 mb-1"
+                onClick={() => document.getElementById('chat-file')?.click()}
+                title="Attach file"
+              >
+                <Paperclip className="h-6 w-6" />
+              </button>
+              <input id="chat-file" type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+
+              <div className="flex-1 bg-slate-100/80 rounded-3xl pb-1 px-1 flex flex-col border border-slate-200 focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-400 transition-all shadow-inner">
+                {file && (
+                  <div className="px-4 pt-3 pb-1 flex items-center justify-between border-b border-slate-200 mb-1">
+                    <span className="text-xs font-semibold text-teal-700 truncate">{file.name}</span>
+                    <button className="text-xs text-rose-500 hover:text-rose-700 font-bold bg-rose-50 h-5 w-5 rounded-full flex items-center justify-center" onClick={() => setFile(null)}>✕</button>
+                  </div>
+                )}
+                <input
+                  className="w-full bg-transparent px-5 py-3.5 text-slate-700 placeholder:text-slate-400 focus:outline-none text-sm font-medium"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyDown={(e) => e.key === "Enter" && send()}
+                />
+              </div>
+
+              <button
+                onClick={send}
+                disabled={!text.trim() && !file}
+                className="p-3.5 mb-0.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-full hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex-shrink-0"
+              >
+                <Send className="h-5 w-5 ml-0.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center bg-[#F8FAFC] relative z-20">
+          <div className="h-28 w-28 bg-white rounded-full border border-slate-100 flex items-center justify-center mb-6 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)]">
+            <MessageSquare className="h-10 w-10 text-teal-200" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-3 tracking-tight">Doctor Messages</h2>
+          <p className="text-sm font-medium text-slate-500 text-center max-w-md leading-relaxed">
+            Select a patient from the sidebar to view their case and update the team.
+          </p>
+        </div>
       )}
     </div>
   );

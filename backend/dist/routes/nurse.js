@@ -22,6 +22,7 @@ router.get("/appointments", (0, requireAuth_1.requireAuth)(["nurse", "admin"]), 
       `, [today]);
         const rows = result.rows.map((r) => ({
             id: r.id,
+            date: new Date(r.appointment_date).toISOString().split("T")[0],
             appointmentDate: r.appointment_date,
             time: new Date(r.appointment_date).toTimeString().slice(0, 5),
             mode: r.mode,

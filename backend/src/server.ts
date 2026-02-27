@@ -65,8 +65,12 @@ app.use((req, res, next) => {
   }
   return next();
 });
-
-app.use(express.json());
+// Increase JSON body size limit so chat attachments (images, small files) don't fail
+app.use(
+  express.json({
+    limit: process.env.JSON_BODY_LIMIT || "5mb",
+  })
+);
 
 /* ===========================
    🏥 HEALTH CHECK

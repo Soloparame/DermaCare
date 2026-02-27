@@ -69,28 +69,61 @@ router.get("/stats", requireAuth(["patient", "admin"]), async (req: Request, res
     const client = await pool.connect();
     try {
       const patientRow = await client.query("SELECT id FROM patients WHERE user_id = $1", [userId]);
-      if (!patientRow.rows[0]) return res.json({ totalAppointments: 0, completed: 0, pending: 0, medicalRecordsCount: 0 });
+      if (!patientRow.rows[0]) {
+        return res.json({
+          totalAppointments: 0,
+          completed: 0,
+          pending: 0,
+          medicalRecordsCount: 0,
+          lastTriageScore: null,
+          lastTriageAt: null,
+        });
+      }
       const patientId = patientRow.rows[0].id as string;
 
-      const [apptRes, mrRes] = await Promise.all([
-        client.query("SELECT status FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE p.user_id = $1", [userId]),
+      const [apptRes, mrRes, preRes] = await Promise.all([
+        client.query(
+          "SELECT status FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE p.user_id = $1",
+          [userId]
+        ),
         client.query("SELECT COUNT(*)::int AS c FROM medical_records WHERE patient_id = $1", [patientId]),
+        client.query(
+          "SELECT triage_score, created_at FROM preassessments WHERE patient_user_id = $1 ORDER BY created_at DESC LIMIT 1",
+          [userId]
+        ),
       ]);
       const appointments = apptRes.rows as { status: string }[];
       const completed = appointments.filter((a) => a.status === "Completed").length;
       const pending = appointments.filter((a) => ["Pending", "Confirmed"].includes(a.status)).length;
+      const latest = preRes.rows[0] as { triage_score: number; created_at: string } | undefined;
       return res.json({
         totalAppointments: appointments.length,
         completed,
         pending,
         medicalRecordsCount: (mrRes.rows[0]?.c as number) ?? 0,
+        lastTriageScore: latest?.triage_score ?? null,
+        lastTriageAt: latest?.created_at ?? null,
       });
     } finally {
       client.release();
     }
   } catch (err) {
     console.error("Error in GET /patient/stats:", err);
-    return res.status(500).json({ message: "Failed to load stats." });
+    try {
+      const list = mem.preassessments.get(req.user!.userId) ?? [];
+      const latest = list[list.length - 1];
+      return res.status(500).json({
+        totalAppointments: 0,
+        completed: 0,
+        pending: 0,
+        medicalRecordsCount: 0,
+        lastTriageScore: latest?.triageScore ?? null,
+        lastTriageAt: latest?.createdAt ?? null,
+        message: "Failed to load stats.",
+      });
+    } catch {
+      return res.status(500).json({ message: "Failed to load stats." });
+    }
   }
 });
 
@@ -322,7 +355,17 @@ router.get("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "do
   const appointmentId = String(req.params.appointmentId);
   try {
     const arr = mem.messages.get(appointmentId) ?? [];
-    return res.json(arr);
+    const role = req.user?.role ?? "patient";
+
+    let visible = arr;
+    if (role === "receptionist") {
+      // Receptionist sees only their own messages and patient messages to preserve privacy
+      visible = arr.filter(
+        (m) => m.senderRole === "receptionist" || m.senderRole === "patient"
+      );
+    }
+
+    return res.json(visible);
   } catch {
     return res.status(500).json({ message: "Failed to load messages." });
   }
@@ -331,12 +374,12 @@ router.get("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "do
 router.post("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req: Request, res: Response) => {
   const role = req.user?.role ?? "patient";
   const appointmentId = String(req.params.appointmentId);
-  const { content } = req.body as { content?: string };
-  if (!content || content.trim() === "") return res.status(400).json({ message: "content required." });
+  const { content, attachmentUrl, attachmentType, attachmentName } = req.body as { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string };
+  if ((!content || content.trim() === "") && !attachmentUrl) return res.status(400).json({ message: "content or attachment required." });
   try {
-    const msg = mem.addMessage(appointmentId, role, content);
+    const msg = mem.addMessage(appointmentId, role, content ?? "", { url: attachmentUrl, type: attachmentType, name: attachmentName });
     try {
-      broadcast("chat_message", { appointmentId, senderRole: role, content: msg.content, at: msg.createdAt });
+      broadcast("chat_message", { appointmentId, senderRole: role, id: msg.id, content: msg.content, createdAt: msg.createdAt, attachmentUrl: msg.attachmentUrl, attachmentType: msg.attachmentType, attachmentName: msg.attachmentName });
     } catch {}
     return res.status(201).json(msg);
   } catch {

@@ -17,7 +17,7 @@ async function getErrorMessage(res: Response, fallback: string): Promise<string>
     409: "This action conflicts with existing data.",
     500: "Server error. Please try again later.",
   };
-  let message = statusMessages[res.status] ?? fallback;
+  const messageDefault = statusMessages[res.status] ?? fallback;
   try {
     const text = await res.text();
     if (text) {
@@ -29,7 +29,7 @@ async function getErrorMessage(res: Response, fallback: string): Promise<string>
   } catch {
     // Use fallback
   }
-  return message;
+  return messageDefault;
 }
 
 export async function apiFetch<TResponse, TBody = unknown>(
@@ -77,4 +77,3 @@ export async function apiFetch<TResponse, TBody = unknown>(
     throw { message: "Invalid response from server.", status: res.status } as ApiError;
   }
 }
-

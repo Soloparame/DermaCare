@@ -274,7 +274,7 @@ router.get("/appointments/:id/avs", (0, requireAuth_1.requireAuth)(["patient", "
         return res.status(500).json({ message: "Failed to load care instructions." });
     }
 });
-router.get("/chat/:appointmentId/messages", (0, requireAuth_1.requireAuth)(["patient", "admin", "doctor"]), async (req, res) => {
+router.get("/chat/:appointmentId/messages", (0, requireAuth_1.requireAuth)(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req, res) => {
     const appointmentId = String(req.params.appointmentId);
     try {
         const arr = memory_1.mem.messages.get(appointmentId) ?? [];
@@ -284,16 +284,16 @@ router.get("/chat/:appointmentId/messages", (0, requireAuth_1.requireAuth)(["pat
         return res.status(500).json({ message: "Failed to load messages." });
     }
 });
-router.post("/chat/:appointmentId/messages", (0, requireAuth_1.requireAuth)(["patient", "admin", "doctor"]), async (req, res) => {
+router.post("/chat/:appointmentId/messages", (0, requireAuth_1.requireAuth)(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req, res) => {
     const role = req.user?.role ?? "patient";
     const appointmentId = String(req.params.appointmentId);
-    const { content } = req.body;
-    if (!content || content.trim() === "")
-        return res.status(400).json({ message: "content required." });
+    const { content, attachmentUrl, attachmentType, attachmentName } = req.body;
+    if ((!content || content.trim() === "") && !attachmentUrl)
+        return res.status(400).json({ message: "content or attachment required." });
     try {
-        const msg = memory_1.mem.addMessage(appointmentId, role, content);
+        const msg = memory_1.mem.addMessage(appointmentId, role, content ?? "", { url: attachmentUrl, type: attachmentType, name: attachmentName });
         try {
-            (0, events_1.broadcast)("chat_message", { appointmentId, senderRole: role, content: msg.content, at: msg.createdAt });
+            (0, events_1.broadcast)("chat_message", { appointmentId, senderRole: role, id: msg.id, content: msg.content, createdAt: msg.createdAt, attachmentUrl: msg.attachmentUrl, attachmentType: msg.attachmentType, attachmentName: msg.attachmentName });
         }
         catch { }
         return res.status(201).json(msg);

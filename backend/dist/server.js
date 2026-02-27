@@ -77,10 +77,12 @@ app.use("/api/admin", admin_1.default);
 app.use("/api/doctors", shared_1.default);
 app.get("/api/events", (req, res) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const qToken = typeof req.query.token === "string" ? req.query.token : null;
+    const headerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
+    const token = qToken ?? headerToken;
+    if (!token) {
         return res.status(401).json({ message: "Missing or invalid token" });
     }
-    const token = authHeader.split(" ")[1];
     try {
         const payload = (0, auth_2.verifyToken)(token);
         (0, events_1.subscribe)(res, String(payload.userId));

@@ -107,6 +107,18 @@ router.post("/medical-records", requireAuth(["doctor", "admin"]), async (req: Re
   }
 
   try {
+    // Ensure the doctor is assigned to this patient (has an appointment with them)
+    const assigned = await pool.query(
+      `SELECT 1 FROM appointments
+       WHERE patient_id = $1 AND doctor_user_id = $2
+       AND status IN ('Pending','Confirmed','Completed')
+       LIMIT 1`,
+      [patientId, userId]
+    );
+    if (assigned.rowCount === 0) {
+      return res.status(403).json({ message: "You can only add records for patients assigned to you." });
+    }
+
     const result = await pool.query(
       `INSERT INTO medical_records (patient_id, doctor_user_id, notes, diagnosis, prescriptions)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, patient_id, notes, diagnosis, prescriptions, created_at`,
@@ -152,6 +164,63 @@ router.get("/patients", requireAuth(["doctor", "admin"]), async (req: Request, r
     return res.status(500).json({ message: "Failed to load patients." });
   }
 });
+
+router.get(
+  "/appointments/:id/vitals",
+  requireAuth(["doctor", "admin"]),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      try {
+        const result = await pool.query(
+          "SELECT bp, hr, temp, weight, notes, triage_score, recorded_at FROM vitals WHERE appointment_id = $1 ORDER BY recorded_at DESC LIMIT 1",
+          [id]
+        );
+        if (result.rowCount === 0) {
+          return res.json({
+            appointmentId: id,
+            bp: null,
+            hr: null,
+            temp: null,
+            weight: null,
+            notes: null,
+            triageScore: null,
+            recordedAt: null,
+          });
+        }
+        const row = result.rows[0];
+        return res.json({
+          appointmentId: id,
+          bp: row.bp,
+          hr: row.hr,
+          temp: row.temp,
+          weight: row.weight,
+          notes: row.notes,
+          triageScore: row.triage_score,
+          recordedAt: row.recorded_at,
+        });
+      } catch {
+        const v = mem.vitals.get(String(id));
+        if (!v) {
+          return res.json({
+            appointmentId: id,
+            bp: null,
+            hr: null,
+            temp: null,
+            weight: null,
+            notes: null,
+            triageScore: null,
+            recordedAt: null,
+          });
+        }
+        return res.json(v);
+      }
+    } catch (err) {
+      console.error("Error in GET /doctor/appointments/:id/vitals:", err);
+      return res.status(500).json({ message: "Failed to load vitals." });
+    }
+  }
+);
 
 router.get("/dashboard", requireAuth(["doctor", "admin"]), async (req: Request, res: Response) => {
   const userId = req.user?.userId;

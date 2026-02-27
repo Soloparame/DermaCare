@@ -1,4 +1,13 @@
-type Message = { id: string; appointmentId: string; senderRole: string; content: string; createdAt: string };
+type Message = {
+  id: string;
+  appointmentId: string;
+  senderRole: string;
+  content: string;
+  createdAt: string;
+  attachmentUrl?: string | null;
+  attachmentType?: "image" | "video" | "document" | null;
+  attachmentName?: string | null;
+};
 type CaseImage = { id: string; caseId: string; fileUrl: string; capturedAt: string; notes?: string | null };
 type Preassessment = { id: string; patientId: string; answers: unknown; triageScore: number; createdAt: string };
 type Vitals = { appointmentId: string; bp?: string | null; hr?: number | null; temp?: number | null; weight?: number | null; notes?: string | null; triageScore?: number | null; recordedAt: string };
@@ -16,8 +25,17 @@ export const mem = {
   prep: new Map<string, PrepStatus>(),
   prescriptions: new Map<string, Prescription[]>(),
   queueByDoctor: new Map<string, QueueItem[]>(),
-  addMessage(appointmentId: string, senderRole: string, content: string): Message {
-    const msg: Message = { id: genId(), appointmentId, senderRole, content, createdAt: new Date().toISOString() };
+  addMessage(appointmentId: string, senderRole: string, content: string, attachment?: { url?: string; type?: "image" | "video" | "document"; name?: string }): Message {
+    const msg: Message = {
+      id: genId(),
+      appointmentId,
+      senderRole,
+      content,
+      createdAt: new Date().toISOString(),
+      attachmentUrl: attachment?.url ?? null,
+      attachmentType: attachment?.type ?? null,
+      attachmentName: attachment?.name ?? null,
+    };
     const arr = this.messages.get(appointmentId) ?? [];
     arr.push(msg);
     this.messages.set(appointmentId, arr);

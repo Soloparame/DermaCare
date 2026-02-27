@@ -40,12 +40,15 @@ const router = (0, express_1.Router)();
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
     const validRoles = ["patient", "doctor", "nurse", "receptionist", "admin"];
-    const { role: rawRole = "patient", fullName, email, password, dateOfBirth, gender, phone, dermatologyHistory, } = req.body;
+    const { role: rawRole = "patient", fullName, email, password, confirmPassword, dateOfBirth, gender, phone, dermatologyHistory, } = req.body;
     const role = validRoles.includes(rawRole) ? rawRole : "patient";
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || !confirmPassword) {
         return res.status(400).json({
-            message: "fullName, email and password are required.",
+            message: "fullName, email, password and confirmPassword are required.",
         });
+    }
+    if (password !== confirmPassword) {
+        return res.status(400).json({ message: "Passwords do not match." });
     }
     try {
         const client = await db_1.pool.connect();
@@ -126,7 +129,7 @@ router.post("/login", async (req, res) => {
             .json({ message: "Failed to sign in. Please try again later." });
     }
 });
-// GET /api/auth/me - current user info (requires valid token)
+// GET /api/auth/me - current user info with role-specific profile (requires valid token)
 router.get("/me", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -144,7 +147,7 @@ router.get("/me", async (req, res) => {
                 return res.status(404).json({ message: "User not found." });
             }
             const u = result.rows[0];
-            return res.json({
+            const profile = {
                 id: u.id,
                 role: u.role,
                 fullName: u.full_name,
@@ -153,7 +156,38 @@ router.get("/me", async (req, res) => {
                 dateOfBirth: u.date_of_birth,
                 gender: u.gender,
                 createdAt: u.created_at,
-            });
+            };
+            if (u.role === "patient") {
+                try {
+                    const pp = await client.query(`SELECT pp.address, pp.emergency_contact, pp.allergies
+             FROM patient_profiles pp JOIN patients p ON pp.patient_id = p.id
+             WHERE p.user_id = $1`, [u.id]);
+                    if (pp.rows[0]) {
+                        const r = pp.rows[0];
+                        profile.address = r.address ?? null;
+                        profile.emergencyContact = r.emergency_contact ?? null;
+                        profile.allergies = r.allergies ?? null;
+                    }
+                }
+                catch {
+                    /* patient_profiles may not exist */
+                }
+            }
+            if (u.role === "doctor") {
+                try {
+                    const dp = await client.query("SELECT specialization, bio, consultation_fee FROM doctor_profiles WHERE user_id = $1", [u.id]);
+                    if (dp.rows[0]) {
+                        const r = dp.rows[0];
+                        profile.specialization = r.specialization ?? "Dermatology";
+                        profile.bio = r.bio ?? null;
+                        profile.consultationFee = r.consultation_fee ?? null;
+                    }
+                }
+                catch {
+                    /* doctor_profiles may not exist */
+                }
+            }
+            return res.json(profile);
         }
         finally {
             client.release();

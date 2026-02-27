@@ -10,8 +10,17 @@ exports.mem = {
     prep: new Map(),
     prescriptions: new Map(),
     queueByDoctor: new Map(),
-    addMessage(appointmentId, senderRole, content) {
-        const msg = { id: genId(), appointmentId, senderRole, content, createdAt: new Date().toISOString() };
+    addMessage(appointmentId, senderRole, content, attachment) {
+        const msg = {
+            id: genId(),
+            appointmentId,
+            senderRole,
+            content,
+            createdAt: new Date().toISOString(),
+            attachmentUrl: attachment?.url ?? null,
+            attachmentType: attachment?.type ?? null,
+            attachmentName: attachment?.name ?? null,
+        };
         const arr = this.messages.get(appointmentId) ?? [];
         arr.push(msg);
         this.messages.set(appointmentId, arr);

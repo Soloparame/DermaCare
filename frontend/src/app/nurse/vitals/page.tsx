@@ -1,8 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
 import type { ApiError } from "@/lib/api";
+
+interface NurseAppointment {
+  id: string;
+  time: string;
+  mode: string;
+  status: string;
+  patientName: string;
+  doctorName: string;
+}
 
 export default function NurseVitalsPage() {
   const { fetch } = useApi();
@@ -15,6 +24,26 @@ export default function NurseVitalsPage() {
   const [resp, setResp] = useState<{ triageScore: number; recordedAt: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [appointments, setAppointments] = useState<NurseAppointment[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoadingAppointments(true);
+      try {
+        const data = await fetch<NurseAppointment[]>("/nurse/appointments");
+        setAppointments(data);
+        if (!appointmentId && data.length) {
+          setAppointmentId(data[0].id);
+        }
+      } catch (e) {
+        // surface via main error if needed on submit
+        console.error(e);
+      } finally {
+        setLoadingAppointments(false);
+      }
+    })();
+  }, [fetch]);
 
   async function submit() {
     setLoading(true);
@@ -42,10 +71,26 @@ export default function NurseVitalsPage() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="text-2xl font-bold">Record vitals</h1>
+      <p className="mt-1 text-sm text-slate-600">
+        Select one of today&apos;s appointments, then enter the patient&apos;s vitals before the doctor sees them.
+      </p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-slate-700">Appointment ID</label>
-          <input className="mt-1 w-full rounded border px-3 py-2" value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)} />
+          <label className="block text-sm font-medium text-slate-700">Appointment</label>
+          <select
+            className="mt-1 w-full rounded border px-3 py-2"
+            value={appointmentId}
+            onChange={(e) => setAppointmentId(e.target.value)}
+          >
+            <option value="">
+              {loadingAppointments ? "Loading appointments..." : "Choose appointment"}
+            </option>
+            {appointments.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.time} · {a.patientName} · Dr. {a.doctorName} ({a.mode})
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700">Blood pressure</label>

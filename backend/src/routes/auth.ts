@@ -18,6 +18,7 @@ router.post("/register", async (req: Request, res: Response) => {
     fullName,
     email,
     password,
+    confirmPassword,
     dateOfBirth,
     gender,
     phone,
@@ -27,6 +28,7 @@ router.post("/register", async (req: Request, res: Response) => {
     fullName?: string;
     email?: string;
     password?: string;
+    confirmPassword?: string;
     dateOfBirth?: string;
     gender?: string;
     phone?: string;
@@ -35,10 +37,14 @@ router.post("/register", async (req: Request, res: Response) => {
 
   const role = validRoles.includes(rawRole as UserRole) ? (rawRole as UserRole) : "patient";
 
-  if (!fullName || !email || !password) {
+  if (!fullName || !email || !password || !confirmPassword) {
     return res.status(400).json({
-      message: "fullName, email and password are required.",
+      message: "fullName, email, password and confirmPassword are required.",
     });
+  }
+
+  if (password !== confirmPassword) {
+    return res.status(400).json({ message: "Passwords do not match." });
   }
 
   try {
@@ -238,4 +244,3 @@ router.get("/me", async (req: Request, res: Response) => {
 });
 
 export default router;
-
