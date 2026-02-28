@@ -93,23 +93,23 @@ export default function ReceptionistDashboardPage() {
   }
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="max-w-[1600px] mx-auto space-y-6 pb-10">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 p-8 sm:p-10 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 p-6 sm:p-8 text-white shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-indigo-100 mb-3 backdrop-blur-md">
-              <Building2 className="h-4 w-4" /> Front Desk
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[10px] font-semibold text-indigo-100 mb-2 backdrop-blur-md">
+              <Building2 className="h-3.5 w-3.5" /> Front Desk
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2">Reception Overview</h1>
-            <p className="text-indigo-100/80 font-medium">Manage daily appointments, schedules, and coordinate patient visits.</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-1">Reception Overview</h1>
+            <p className="text-indigo-100/70 text-sm font-medium">Manage daily appointments and schedules.</p>
           </div>
           <button
             onClick={() => setShowBookModal(true)}
-            className="inline-flex items-center justify-center gap-2 bg-white text-indigo-900 font-bold px-6 py-3.5 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all flex-shrink-0 group"
+            className="inline-flex items-center justify-center gap-2 bg-white text-indigo-900 text-sm font-bold px-5 py-2.5 rounded-lg shadow hover:shadow-md hover:scale-105 transition-all flex-shrink-0 group"
           >
-            <Plus className="h-5 w-5 bg-indigo-100 text-indigo-700 rounded-full p-0.5 group-hover:rotate-90 transition-transform" />
+            <Plus className="h-4 w-4 bg-indigo-100 text-indigo-700 rounded-full p-0.5 group-hover:rotate-90 transition-transform" />
             Book Appointment
           </button>
         </div>
@@ -117,90 +117,90 @@ export default function ReceptionistDashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Today */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-teal-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <div className="h-12 w-12 rounded-2xl bg-teal-100/80 flex items-center justify-center backdrop-blur-sm border border-teal-200/50">
-              <Calendar className="h-6 w-6 text-teal-600" />
+          <div className="flex items-center justify-between mb-3 relative z-10">
+            <div className="h-10 w-10 rounded-xl bg-teal-100/80 flex items-center justify-center backdrop-blur-sm border border-teal-200/50">
+              <Calendar className="h-5 w-5 text-teal-600" />
             </div>
           </div>
           <div className="relative z-10">
-            <p className="text-4xl font-black text-slate-800 mb-1">{stats?.today ?? 0}</p>
-            <p className="text-sm font-semibold text-slate-500 tracking-wide">Total Today</p>
+            <p className="text-3xl font-black text-slate-800 mb-0.5">{stats?.today ?? 0}</p>
+            <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">Total Today</p>
           </div>
         </div>
 
         {/* Pending */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <div className="h-12 w-12 rounded-2xl bg-amber-100/80 flex items-center justify-center backdrop-blur-sm border border-amber-200/50">
-              <Clock className="h-6 w-6 text-amber-600" />
+          <div className="flex items-center justify-between mb-3 relative z-10">
+            <div className="h-10 w-10 rounded-xl bg-amber-100/80 flex items-center justify-center backdrop-blur-sm border border-amber-200/50">
+              <Clock className="h-5 w-5 text-amber-600" />
             </div>
           </div>
           <div className="relative z-10">
-            <p className="text-4xl font-black text-slate-800 mb-1">{stats?.pending ?? 0}</p>
-            <p className="text-sm font-semibold text-slate-500 tracking-wide">Pending Confirmation</p>
+            <p className="text-3xl font-black text-slate-800 mb-0.5">{stats?.pending ?? 0}</p>
+            <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">Pending</p>
           </div>
         </div>
 
         {/* Confirmed */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-100/80 flex items-center justify-center backdrop-blur-sm border border-emerald-200/50">
-              <CheckCircle className="h-6 w-6 text-emerald-600" />
+          <div className="flex items-center justify-between mb-3 relative z-10">
+            <div className="h-10 w-10 rounded-xl bg-emerald-100/80 flex items-center justify-center backdrop-blur-sm border border-emerald-200/50">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
           </div>
           <div className="relative z-10">
-            <p className="text-4xl font-black text-slate-800 mb-1">{stats?.confirmed ?? 0}</p>
-            <p className="text-sm font-semibold text-slate-500 tracking-wide">Confirmed</p>
+            <p className="text-3xl font-black text-slate-800 mb-0.5">{stats?.confirmed ?? 0}</p>
+            <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">Confirmed</p>
           </div>
         </div>
 
         {/* Cancelled */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group overflow-hidden relative">
           <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-rose-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <div className="h-12 w-12 rounded-2xl bg-rose-100/80 flex items-center justify-center backdrop-blur-sm border border-rose-200/50">
-              <XCircle className="h-6 w-6 text-rose-600" />
+          <div className="flex items-center justify-between mb-3 relative z-10">
+            <div className="h-10 w-10 rounded-xl bg-rose-100/80 flex items-center justify-center backdrop-blur-sm border border-rose-200/50">
+              <XCircle className="h-5 w-5 text-rose-600" />
             </div>
           </div>
           <div className="relative z-10">
-            <p className="text-4xl font-black text-slate-800 mb-1">{cancelledCount}</p>
-            <p className="text-sm font-semibold text-slate-500 tracking-wide">Cancelled</p>
+            <p className="text-3xl font-black text-slate-800 mb-0.5">{cancelledCount}</p>
+            <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">Cancelled</p>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-50/80 backdrop-blur-sm border border-red-200 p-4 flex items-center gap-3 text-red-700 shadow-sm transition-all animate-in fade-in slide-in-from-top-4">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <p className="text-sm font-semibold">{error}</p>
+        <div className="rounded-xl bg-red-50/80 backdrop-blur-sm border border-red-200 p-3 flex items-center gap-3 text-red-700 shadow-sm transition-all animate-in fade-in slide-in-from-top-4">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <p className="text-xs font-semibold">{error}</p>
         </div>
       )}
 
       {/* Appointments Data Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/40 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-lg shadow-slate-200/30 overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-100 text-indigo-600 rounded-xl shadow-sm border border-indigo-200/50">
-              <AlignLeft className="h-5 w-5" />
+            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg shadow-sm border border-indigo-200/50">
+              <AlignLeft className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 tracking-tight">Appointments Roster</h2>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">Filter and manage bookings</p>
+              <h2 className="text-lg font-bold text-slate-800 tracking-tight">Appointments Roster</h2>
+              <p className="text-[10px] font-semibold text-slate-500 mt-0.5 uppercase tracking-wider">Manage bookings</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 items-center bg-slate-100/80 p-1.5 rounded-2xl backdrop-blur-sm border border-slate-200/60">
+          <div className="flex flex-wrap gap-1.5 items-center bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm border border-slate-200/60">
             {(["all", "Pending", "Confirmed", "Completed"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`rounded-xl px-4 py-2 text-sm font-bold transition-all duration-200 flex-1 sm:flex-none text-center ${filter === f
-                    ? "bg-white text-indigo-700 shadow-sm border border-slate-200/60 scale-100"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 scale-95"
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-200 flex-1 sm:flex-none text-center ${filter === f
+                    ? "bg-white text-indigo-700 shadow-sm border border-slate-200/60"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
                   }`}
               >
                 {f === "all" ? "All Bookings" : f}
@@ -213,116 +213,109 @@ export default function ReceptionistDashboardPage() {
           <table className="min-w-full text-sm relative">
             {loading && (
               <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-                <Activity className="h-8 w-8 text-indigo-500 animate-spin" />
+                <Activity className="h-6 w-6 text-indigo-500 animate-spin" />
               </div>
             )}
             <thead className="bg-white border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-left font-bold text-slate-400 uppercase tracking-wider text-[10px]">Date & Time</th>
-                <th className="px-6 py-4 text-left font-bold text-slate-400 uppercase tracking-wider text-[10px]">Patient details</th>
-                <th className="px-6 py-4 text-left font-bold text-slate-400 uppercase tracking-wider text-[10px]">Assigned Doctor</th>
-                <th className="px-6 py-4 text-left font-bold text-slate-400 uppercase tracking-wider text-[10px]">Type</th>
-                <th className="px-6 py-4 text-left font-bold text-slate-400 uppercase tracking-wider text-[10px]">Status</th>
-                <th className="px-6 py-4 text-right font-bold text-slate-400 uppercase tracking-wider text-[10px]">Actions</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Date & Time</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Patient details</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Assigned Doctor</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Type</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Status</th>
+                <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-wider text-[9px]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {!loading && appointments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center">
+                  <td colSpan={6} className="px-4 py-16 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-500">
-                      <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                        <Calendar className="h-8 w-8 text-slate-300" />
+                      <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
+                        <Calendar className="h-6 w-6 text-slate-300" />
                       </div>
-                      <p className="font-bold text-slate-700 text-lg">No appointments found</p>
-                      <p className="text-sm mt-1">Try adjusting the filter or book a new appointment.</p>
+                      <p className="font-bold text-slate-700 text-base">No appointments found</p>
+                      <p className="text-xs mt-1">Try adjusting the filter or book a new appointment.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 appointments.map((a) => (
                   <tr key={a.id} className="hover:bg-slate-50/80 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800 text-base">{a.time}</span>
-                        <span className="text-xs font-semibold text-slate-500 mt-0.5 whitespace-nowrap">
+                        <span className="font-bold text-slate-800 text-sm">{a.time}</span>
+                        <span className="text-[10px] font-semibold text-slate-500 mt-0.5 whitespace-nowrap">
                           {new Date(a.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-bold text-slate-800">{a.patientName}</span>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-slate-800 text-xs">{a.patientName}</span>
                         <div className="flex flex-col gap-0.5">
                           {a.patientPhone && (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                              <Phone className="h-3 w-3 text-slate-400" /> {a.patientPhone}
-                            </span>
-                          )}
-                          {a.patientEmail && (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                              <Mail className="h-3 w-3 text-slate-400" /> {a.patientEmail}
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                              <Phone className="h-2.5 w-2.5 text-slate-400" /> {a.patientPhone}
                             </span>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-sm font-semibold border border-indigo-100">
-                        <Stethoscope className="h-3.5 w-3.5" /> {a.doctorName}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg text-xs font-semibold border border-indigo-100">
+                        <Stethoscope className="h-3 w-3" /> {a.doctorName}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${a.mode === "Virtual" ? "bg-blue-50 text-blue-700 border-blue-200/50" : "bg-slate-100 text-slate-700 border-slate-200/50"
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${a.mode === "Virtual" ? "bg-blue-50 text-blue-700 border-blue-200/50" : "bg-slate-100 text-slate-700 border-slate-200/50"
                         }`}>
                         {a.mode === "Virtual" ? <Video className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
                         {a.mode}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border shadow-sm ${a.status === "Confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${a.status === "Confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200/50" :
                           a.status === "Pending" ? "bg-amber-50 text-amber-700 border-amber-200/50" :
                             a.status === "Completed" ? "bg-slate-50 text-slate-600 border-slate-200/50" :
                               "bg-rose-50 text-rose-700 border-rose-200/50"
                         }`}>
-                        {a.status === "Confirmed" && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>}
-                        {a.status === "Pending" && <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></div>}
-                        {a.status === "Completed" && <CheckCircle className="h-3.5 w-3.5" />}
-                        {a.status === "Cancelled" && <XCircle className="h-3.5 w-3.5" />}
+                        {a.status === "Confirmed" && <div className="h-1 w-1 rounded-full bg-emerald-500"></div>}
+                        {a.status === "Pending" && <div className="h-1 w-1 rounded-full bg-amber-500 animate-pulse"></div>}
                         {a.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right align-middle">
-                      <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <td className="px-4 py-3 whitespace-nowrap text-right align-middle">
+                      <div className="flex items-center justify-end gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         {a.status === "Pending" && (
                           <>
                             <button
                               onClick={() => updateStatus(a.id, "Confirmed")}
-                              className="inline-flex items-center justify-center p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 rounded-xl transition-all shadow-sm border border-emerald-200/50"
-                              title="Confirm Appointment"
+                              className="inline-flex items-center justify-center p-1.5 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all border border-emerald-200/50"
+                              title="Confirm"
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => updateStatus(a.id, "Cancelled")}
-                              className="inline-flex items-center justify-center p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 rounded-xl transition-all shadow-sm border border-rose-200/50"
-                              title="Cancel Appointment"
+                              className="inline-flex items-center justify-center p-1.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-all border border-rose-200/50"
+                              title="Cancel"
                             >
-                              <XCircle className="h-4 w-4" />
+                              <XCircle className="h-3.5 w-3.5" />
                             </button>
                           </>
                         )}
                         {a.status === "Confirmed" && (
                           <button
                             onClick={() => updateStatus(a.id, "Completed")}
-                            className="inline-flex items-center justify-center p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 rounded-xl transition-all shadow-sm border border-slate-200/50"
-                            title="Mark as Completed"
+                            className="inline-flex items-center justify-center p-1.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all border border-slate-200/50"
+                            title="Complete"
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <CheckCircle className="h-3.5 w-3.5" />
                           </button>
                         )}
                         {["Completed", "Cancelled"].includes(a.status) && (
-                          <span className="text-xs font-bold text-slate-300 mr-4">NO ACTIONS</span>
+                          <span className="text-[10px] font-bold text-slate-300 mr-2">DONE</span>
                         )}
                       </div>
                     </td>

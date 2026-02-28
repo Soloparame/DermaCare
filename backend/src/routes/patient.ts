@@ -353,19 +353,27 @@ router.get("/appointments/:id/avs", requireAuth(["patient", "admin"]), async (re
 
 router.get("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req: Request, res: Response) => {
   const appointmentId = String(req.params.appointmentId);
+  const role = req.user?.role ?? "patient";
   try {
-    const arr = mem.messages.get(appointmentId) ?? [];
-    const role = req.user?.role ?? "patient";
-
-    let visible = arr;
-    if (role === "receptionist") {
-      // Receptionist sees only their own messages and patient messages to preserve privacy
-      visible = arr.filter(
-        (m) => m.senderRole === "receptionist" || m.senderRole === "patient"
-      );
+    try {
+      let query = "SELECT id, appointment_id as \"appointmentId\", sender_role as \"senderRole\", content, created_at as \"createdAt\", attachment_url as \"attachmentUrl\", attachment_type as \"attachmentType\", attachment_name as \"attachmentName\" FROM chat_messages WHERE appointment_id = $1";
+      const params = [appointmentId];
+      
+      if (role === "receptionist") {
+        query += " AND (sender_role = 'receptionist' OR sender_role = 'patient')";
+      }
+      
+      query += " ORDER BY created_at ASC";
+      const result = await pool.query(query, params);
+      return res.json(result.rows);
+    } catch {
+      const arr = mem.messages.get(appointmentId) ?? [];
+      let visible = arr;
+      if (role === "receptionist") {
+        visible = arr.filter((m) => m.senderRole === "receptionist" || m.senderRole === "patient");
+      }
+      return res.json(visible);
     }
-
-    return res.json(visible);
   } catch {
     return res.status(500).json({ message: "Failed to load messages." });
   }
@@ -377,9 +385,28 @@ router.post("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "d
   const { content, attachmentUrl, attachmentType, attachmentName } = req.body as { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string };
   if ((!content || content.trim() === "") && !attachmentUrl) return res.status(400).json({ message: "content or attachment required." });
   try {
-    const msg = mem.addMessage(appointmentId, role, content ?? "", { url: attachmentUrl, type: attachmentType, name: attachmentName });
+    let msg;
     try {
-      broadcast("chat_message", { appointmentId, senderRole: role, id: msg.id, content: msg.content, createdAt: msg.createdAt, attachmentUrl: msg.attachmentUrl, attachmentType: msg.attachmentType, attachmentName: msg.attachmentName });
+      const result = await pool.query(
+        "INSERT INTO chat_messages (appointment_id, sender_role, content, attachment_url, attachment_type, attachment_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, appointment_id as \"appointmentId\", sender_role as \"senderRole\", content, created_at as \"createdAt\", attachment_url as \"attachmentUrl\", attachment_type as \"attachmentType\", attachment_name as \"attachmentName\"",
+        [appointmentId, role, content ?? null, attachmentUrl ?? null, attachmentType ?? null, attachmentName ?? null]
+      );
+      msg = result.rows[0];
+    } catch {
+      msg = mem.addMessage(appointmentId, role, content ?? "", { url: attachmentUrl, type: attachmentType, name: attachmentName });
+    }
+
+    try {
+      broadcast("chat_message", { 
+        appointmentId, 
+        senderRole: role, 
+        id: msg.id, 
+        content: msg.content, 
+        createdAt: msg.createdAt, 
+        attachmentUrl: msg.attachmentUrl, 
+        attachmentType: msg.attachmentType, 
+        attachmentName: msg.attachmentName 
+      });
     } catch {}
     return res.status(201).json(msg);
   } catch {

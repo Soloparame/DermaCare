@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
 import type { ApiError } from "@/lib/api";
@@ -157,7 +158,7 @@ export default function DoctorDashboardPage() {
       {/* Overview Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Today's Appointments */}
-        <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg shadow-teal-500/20 relative overflow-hidden group hover:-translate-y-1 transition-transform">
+        <Link href="/doctor/appointments" className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg shadow-teal-500/20 relative overflow-hidden group hover:-translate-y-1 transition-transform">
           <div className="absolute -right-6 -top-6 h-24 w-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div className="flex items-center justify-between mb-4">
@@ -170,10 +171,10 @@ export default function DoctorDashboardPage() {
               <p className="text-sm font-semibold text-teal-50 tracking-wide">Today's Visits</p>
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* Pending */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+        <Link href="/doctor/appointments" className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group hover:-translate-y-1 transition-transform">
           <div className="flex items-center justify-between mb-4">
             <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
               <Clock className="h-5 w-5 text-amber-500" />
@@ -183,10 +184,10 @@ export default function DoctorDashboardPage() {
             <p className="text-4xl font-black text-slate-800 mb-1">{pendingCount}</p>
             <p className="text-sm font-semibold text-slate-500 tracking-wide">Pending</p>
           </div>
-        </div>
+        </Link>
 
         {/* Completed */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+        <Link href="/doctor/appointments" className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group hover:-translate-y-1 transition-transform">
           <div className="flex items-center justify-between mb-4">
             <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center">
               <CheckCircle className="h-5 w-5 text-emerald-500" />
@@ -196,7 +197,7 @@ export default function DoctorDashboardPage() {
             <p className="text-4xl font-black text-slate-800 mb-1">{completedCount}</p>
             <p className="text-sm font-semibold text-slate-500 tracking-wide">Completed</p>
           </div>
-        </div>
+        </Link>
 
         {/* Total Patients */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
