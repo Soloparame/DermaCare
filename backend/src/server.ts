@@ -68,7 +68,9 @@ app.use((req, res, next) => {
 // Increase JSON body size limit so chat attachments (images, small files) don't fail
 app.use(
   express.json({
-    limit: process.env.JSON_BODY_LIMIT || "5mb",
+    // Allow slightly larger payloads for base64-encoded images/videos in chat.
+    // Can be overridden via JSON_BODY_LIMIT in the environment.
+    limit: process.env.JSON_BODY_LIMIT || "10mb",
   })
 );
 

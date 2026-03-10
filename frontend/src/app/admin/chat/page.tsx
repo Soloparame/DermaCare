@@ -14,6 +14,7 @@ interface Msg {
   attachmentUrl?: string | null;
   attachmentType?: "image" | "video" | "document" | null;
   attachmentName?: string | null;
+  channel?: "reception" | "care_team" | "staff" | null;
 }
 interface Appointment { id: string; date: string; time: string; patientName: string; doctorName: string }
 
@@ -73,7 +74,19 @@ export default function AdminChatPage() {
             : "document";
         attachmentPayload = { attachmentUrl: dataUrl, attachmentType: type, attachmentName: file.name };
       }
-      const msg = await fetch<Msg, { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string }>(`/patient/chat/${appointmentId}/messages`, { method: "POST", body: { content: text.trim() || undefined, ...attachmentPayload } });
+      const msg = await fetch<
+        Msg,
+        {
+          content?: string;
+          attachmentUrl?: string;
+          attachmentType?: "image" | "video" | "document";
+          attachmentName?: string;
+          channel?: string;
+        }
+      >(`/patient/chat/${appointmentId}/messages`, {
+        method: "POST",
+        body: { content: text.trim() || undefined, ...attachmentPayload },
+      });
       setMessages((m) => (m.some((x) => x.id === msg.id) ? m : [...m, msg]));
       setText("");
       setFile(null);

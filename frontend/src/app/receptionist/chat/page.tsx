@@ -43,7 +43,7 @@ export default function ReceptionistChatPage() {
   const load = useCallback(async (id: string) => {
     if (!id) return;
     try {
-      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages`);
+      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages?channel=reception`);
       setMessages(data);
     } catch (e) {
       setError((e as ApiError).message ?? "Failed to load messages.");
@@ -73,10 +73,19 @@ export default function ReceptionistChatPage() {
             : "document";
         attachmentPayload = { attachmentUrl: dataUrl, attachmentType: type, attachmentName: file.name };
       }
-      const msg = await fetch<Msg, { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string }>(
-        `/patient/chat/${appointmentId}/messages`,
-        { method: "POST", body: { content: text.trim() || undefined, ...attachmentPayload } }
-      );
+      const msg = await fetch<
+        Msg,
+        {
+          content?: string;
+          attachmentUrl?: string;
+          attachmentType?: "image" | "video" | "document";
+          attachmentName?: string;
+          channel?: string;
+        }
+      >(`/patient/chat/${appointmentId}/messages`, {
+        method: "POST",
+        body: { content: text.trim() || undefined, ...attachmentPayload, channel: "reception" },
+      });
       setMessages((m) => (m.some((x) => x.id === msg.id) ? m : [...m, msg]));
       setText("");
       setFile(null);
@@ -95,10 +104,7 @@ export default function ReceptionistChatPage() {
     es.addEventListener("chat_message", (ev) => {
       try {
         const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg>;
-        if (
-          data.appointmentId === appointmentId &&
-          (data.senderRole === "receptionist" || data.senderRole === "patient")
-        ) {
+        if (data.appointmentId === appointmentId && data.channel === "reception") {
           setMessages((m) => {
             const id = data.id ?? Math.random().toString(36).slice(2);
             if (m.some((x) => x.id === id)) return m;

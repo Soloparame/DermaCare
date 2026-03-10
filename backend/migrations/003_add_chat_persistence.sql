@@ -10,5 +10,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Channel column to support separate chat streams (e.g. reception vs care team)
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'care_team';
+
 -- Index for performance when loading chat for an appointment
 CREATE INDEX IF NOT EXISTS idx_chat_messages_appointment_id ON chat_messages (appointment_id);

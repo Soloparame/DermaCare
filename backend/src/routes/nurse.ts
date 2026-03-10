@@ -6,12 +6,16 @@ import { mem } from "../memory";
 
 const router = createRouter();
 
-// GET /api/nurse/appointments - today's appointments
-router.get("/appointments", requireAuth(["nurse", "admin"]), async (_req: Request, res: Response) => {
+// GET /api/nurse/appointments - today's appointments for the logged-in nurse
+router.get("/appointments", requireAuth(["nurse", "admin"]), async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  const role = req.user?.role ?? "nurse";
+  if (!userId) return res.status(401).json({ message: "Not authenticated." });
+
   try {
     const today = new Date().toISOString().split("T")[0];
-    const result = await pool.query(
-      `
+
+    let query = `
       SELECT a.id, a.appointment_date, a.mode, a.status,
              pu.full_name AS patient_name, pu.phone AS patient_phone, p.dermatology_history,
              du.full_name AS doctor_name
@@ -20,10 +24,18 @@ router.get("/appointments", requireAuth(["nurse", "admin"]), async (_req: Reques
       JOIN users pu ON p.user_id = pu.id
       JOIN users du ON a.doctor_user_id = du.id
       WHERE a.appointment_date::date = $1 AND a.status IN ('Confirmed', 'Pending')
-      ORDER BY a.appointment_date ASC
-      `,
-      [today]
-    );
+    `;
+    const params: unknown[] = [today];
+
+    if (role === "nurse") {
+      // Only appointments explicitly assigned to this nurse
+      query += " AND a.nurse_user_id = $2";
+      params.push(userId);
+    }
+
+    query += " ORDER BY a.appointment_date ASC";
+
+    const result = await pool.query(query, params);
 
     const rows = result.rows.map((r) => ({
       id: r.id,

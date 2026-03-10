@@ -74,6 +74,29 @@ router.get("/appointments", requireAuth(["receptionist", "admin"]), async (req: 
   }
 });
 
+// GET /api/receptionist/nurses - list all nurses that can be assigned
+router.get("/nurses", requireAuth(["receptionist", "admin"]), async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, full_name, email, phone
+       FROM users
+       WHERE role = 'nurse'
+       ORDER BY full_name`
+    );
+    return res.json(
+      result.rows.map((r) => ({
+        id: r.id as string,
+        fullName: r.full_name as string,
+        email: r.email as string,
+        phone: r.phone as string,
+      }))
+    );
+  } catch (err) {
+    console.error("Error in GET /receptionist/nurses:", err);
+    return res.status(500).json({ message: "Failed to load nurses." });
+  }
+});
+
 // POST /api/receptionist/appointments - create appointment (receptionist/admin booking for patient)
 router.post("/appointments", requireAuth(["receptionist", "admin"]), async (req: Request, res: Response) => {
   const { patientId, doctorId, date, time, mode } = req.body as {
@@ -141,6 +164,42 @@ router.patch("/appointments/:id", requireAuth(["receptionist", "admin"]), async 
     return res.status(500).json({ message: "Failed to update appointment." });
   }
 });
+
+// PATCH /api/receptionist/appointments/:id/nurse - assign a nurse to an appointment
+router.patch(
+  "/appointments/:id/nurse",
+  requireAuth(["receptionist", "admin"]),
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { nurseUserId } = req.body as { nurseUserId?: string };
+
+    if (!nurseUserId) {
+      return res.status(400).json({ message: "nurseUserId is required." });
+    }
+
+    try {
+      const nurseCheck = await pool.query("SELECT id FROM users WHERE id = $1 AND role = 'nurse'", [nurseUserId]);
+      if (nurseCheck.rowCount === 0) {
+        return res.status(400).json({ message: "Invalid nurse." });
+      }
+
+      const result = await pool.query(
+        "UPDATE appointments SET nurse_user_id = $1 WHERE id = $2 RETURNING id, nurse_user_id",
+        [nurseUserId, id]
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Appointment not found." });
+      }
+      return res.json({
+        id: result.rows[0].id as string,
+        nurseUserId: result.rows[0].nurse_user_id as string,
+      });
+    } catch (err) {
+      console.error("Error in PATCH /receptionist/appointments/:id/nurse:", err);
+      return res.status(500).json({ message: "Failed to assign nurse." });
+    }
+  }
+);
 
 // GET /api/receptionist/stats - dashboard stats
 router.get("/stats", requireAuth(["receptionist", "admin"]), async (_req: Request, res: Response) => {

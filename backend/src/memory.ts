@@ -4,6 +4,8 @@ type Message = {
   senderRole: string;
   content: string;
   createdAt: string;
+  // Logical channel for this message, e.g. 'reception', 'care_team', 'staff'
+  channel?: string | null;
   attachmentUrl?: string | null;
   attachmentType?: "image" | "video" | "document" | null;
   attachmentName?: string | null;
@@ -25,13 +27,20 @@ export const mem = {
   prep: new Map<string, PrepStatus>(),
   prescriptions: new Map<string, Prescription[]>(),
   queueByDoctor: new Map<string, QueueItem[]>(),
-  addMessage(appointmentId: string, senderRole: string, content: string, attachment?: { url?: string; type?: "image" | "video" | "document"; name?: string }): Message {
+  addMessage(
+    appointmentId: string,
+    senderRole: string,
+    content: string,
+    attachment?: { url?: string; type?: "image" | "video" | "document"; name?: string },
+    channel?: string
+  ): Message {
     const msg: Message = {
       id: genId(),
       appointmentId,
       senderRole,
       content,
       createdAt: new Date().toISOString(),
+      channel: channel ?? "care_team",
       attachmentUrl: attachment?.url ?? null,
       attachmentType: attachment?.type ?? null,
       attachmentName: attachment?.name ?? null,

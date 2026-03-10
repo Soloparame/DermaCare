@@ -11,6 +11,7 @@ import {
 
 interface Patient { id: string; fullName: string; email: string; phone: string }
 interface Doctor { id: string; fullName: string; specialization?: string }
+interface Nurse { id: string; fullName: string; email: string; phone: string }
 
 interface Appointment {
   id: string;
@@ -43,21 +44,28 @@ export default function ReceptionistDashboardPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [booking, setBooking] = useState({ patientId: "", doctorId: "", date: "", time: "09:00", mode: "In-person" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [nurses, setNurses] = useState<Nurse[]>([]);
+  const [assigning, setAssigning] = useState<{ appointmentId: string; nurseUserId: string }>({
+    appointmentId: "",
+    nurseUserId: "",
+  });
 
   async function loadData() {
     setLoading(true);
     setError(null);
     try {
-      const [apptData, statsData, patientsData, doctorsData] = await Promise.all([
+      const [apptData, statsData, patientsData, doctorsData, nursesData] = await Promise.all([
         fetch<Appointment[]>(`/receptionist/appointments${filter !== "all" ? `?status=${filter}` : ""}`),
         fetch<Stats>("/receptionist/stats"),
         fetch<Patient[]>("/receptionist/patients"),
         fetch<Doctor[]>("/doctors"),
+        fetch<Nurse[]>("/receptionist/nurses"),
       ]);
       setAppointments(apptData);
       setStats(statsData);
       setPatients(patientsData);
       setDoctors(doctorsData);
+      setNurses(nursesData);
     } catch (err) {
       setError((err as ApiError).message ?? "Failed to load data.");
       setAppointments([]);
@@ -78,6 +86,20 @@ export default function ReceptionistDashboardPage() {
       await loadData();
     } catch (err) {
       setError((err as ApiError).message ?? "Failed to update.");
+    }
+  }
+
+  async function assignNurse(appointmentId: string) {
+    if (!assigning.nurseUserId) return;
+    try {
+      await fetch(`/receptionist/appointments/${appointmentId}/nurse`, {
+        method: "PATCH",
+        body: { nurseUserId: assigning.nurseUserId },
+      });
+      setAssigning({ appointmentId: "", nurseUserId: "" });
+      await loadData();
+    } catch (err) {
+      setError((err as ApiError).message ?? "Failed to assign nurse.");
     }
   }
 
@@ -221,6 +243,7 @@ export default function ReceptionistDashboardPage() {
                 <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Date & Time</th>
                 <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Patient details</th>
                 <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Assigned Doctor</th>
+                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Nurse</th>
                 <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Type</th>
                 <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-wider text-[9px]">Status</th>
                 <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-wider text-[9px]">Actions</th>
@@ -266,6 +289,61 @@ export default function ReceptionistDashboardPage() {
                       <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg text-xs font-semibold border border-indigo-100">
                         <Stethoscope className="h-3 w-3" /> {a.doctorName}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {assigning.appointmentId === a.id ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={assigning.nurseUserId}
+                            onChange={(e) =>
+                              setAssigning((prev) => ({
+                                ...prev,
+                                nurseUserId: e.target.value,
+                              }))
+                            }
+                            className="text-xs rounded-lg border border-slate-200 px-2 py-1 bg-white"
+                          >
+                            <option value="">Select nurse</option>
+                            {nurses.map((n) => (
+                              <option key={n.id} value={n.id}>
+                                {n.fullName}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => assignNurse(a.id)}
+                            className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAssigning({ appointmentId: "", nurseUserId: "" })}
+                            className="text-[10px] font-bold text-slate-500 px-1"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={a.status !== "Confirmed"}
+                          onClick={() =>
+                            setAssigning({
+                              appointmentId: a.id,
+                              nurseUserId: "",
+                            })
+                          }
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border ${
+                            a.status === "Confirmed"
+                              ? "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                              : "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
+                          }`}
+                        >
+                          Assign Nurse
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${a.mode === "Virtual" ? "bg-blue-50 text-blue-700 border-blue-200/50" : "bg-slate-100 text-slate-700 border-slate-200/50"

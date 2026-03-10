@@ -14,6 +14,7 @@ interface Msg {
   attachmentUrl?: string | null;
   attachmentType?: "image" | "video" | "document" | null;
   attachmentName?: string | null;
+  channel?: "reception" | "care_team" | "staff" | null;
 }
 interface Appointment {
   id: string;
@@ -32,11 +33,23 @@ export default function PatientChatPage() {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [channel, setChannel] = useState<"reception" | "care_team">("care_team");
+
+  const MAX_FILE_SIZE_MB = 8;
 
   const confirmedAppointments = appointments.filter((a) =>
     ["Confirmed", "Completed"].includes(a.status)
   );
   const selectedAppointment = confirmedAppointments.find((a) => a.id === appointmentId);
+
+  function openCall() {
+    if (!selectedAppointment) return;
+    const room = selectedAppointment.id;
+    const url = `https://meet.jit.si/dermacare-${room}`;
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -53,10 +66,10 @@ export default function PatientChatPage() {
     })();
   }, [fetch]);
 
-  const load = useCallback(async (id: string) => {
+  const load = useCallback(async (id: string, scope: "reception" | "care_team") => {
     if (!id) return;
     try {
-      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages`);
+      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages?channel=${scope}`);
       setMessages(data);
     } catch (e) {
       setError((e as ApiError).message ?? "Failed to load messages.");
@@ -64,8 +77,20 @@ export default function PatientChatPage() {
   }, [fetch]);
 
   useEffect(() => {
-    if (appointmentId) void load(appointmentId);
-  }, [appointmentId, load]);
+    if (appointmentId) void load(appointmentId, channel);
+  }, [appointmentId, channel, load]);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    if (f && f.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setError(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB} MB.`);
+      e.target.value = "";
+      setFile(null);
+      return;
+    }
+    setError(null);
+    setFile(f);
+  }
 
   async function send() {
     if (!appointmentId || (!text.trim() && !file)) return;
@@ -86,9 +111,21 @@ export default function PatientChatPage() {
             : "document";
         attachmentPayload = { attachmentUrl: dataUrl, attachmentType: type, attachmentName: file.name };
       }
-      const msg = await fetch<Msg, { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string }>(
+      const msg = await fetch<
+        Msg,
+        {
+          content?: string;
+          attachmentUrl?: string;
+          attachmentType?: "image" | "video" | "document";
+          attachmentName?: string;
+          channel?: "reception" | "care_team";
+        }
+      >(
         `/patient/chat/${appointmentId}/messages`,
-        { method: "POST", body: { content: text.trim() || undefined, ...attachmentPayload } }
+        {
+          method: "POST",
+          body: { content: text.trim() || undefined, ...attachmentPayload, channel },
+        }
       );
       setMessages((m) => (m.some((x) => x.id === msg.id) ? m : [...m, msg]));
       setText("");
@@ -111,6 +148,13 @@ export default function PatientChatPage() {
       try {
         const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg>;
         if (data.appointmentId === appointmentId) {
+          const sender = data.senderRole;
+          const inReceptionChannel =
+            channel === "reception" && (sender === "patient" || sender === "receptionist");
+          const inCareTeamChannel =
+            channel === "care_team" && (sender === "patient" || sender === "doctor" || sender === "nurse");
+          if (!inReceptionChannel && !inCareTeamChannel) return;
+
           setMessages((m) => {
             const id = data.id ?? Math.random().toString(36).slice(2);
             if (m.some((x) => x.id === id)) return m;
@@ -134,7 +178,7 @@ export default function PatientChatPage() {
       }
     });
     return () => es.close();
-  }, [appointmentId, getToken]);
+  }, [appointmentId, channel, getToken]);
 
   return (
     <div className="flex h-[calc(100vh-10rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/40">
@@ -204,14 +248,60 @@ export default function PatientChatPage() {
               </div>
               <div>
                 <h2 className="font-bold text-slate-800 tracking-tight">Dr. {selectedAppointment.doctorName}</h2>
-                <p className="text-xs text-teal-600 font-medium tracking-wide">Care Team: Receptionist, Nurse handling your case</p>
+                <p className="text-xs text-teal-600 font-medium tracking-wide">
+                  {channel === "reception"
+                    ? "Chat with Receptionist about your appointment"
+                    : "Care Team: Doctor and Nurse handling your case"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3 text-slate-400">
-              <button className="p-2.5 hover:bg-teal-50 hover:text-teal-600 rounded-full transition"><Phone className="h-5 w-5" /></button>
-              <button className="p-2.5 hover:bg-teal-50 hover:text-teal-600 rounded-full transition"><Video className="h-5 w-5" /></button>
+              <button
+                type="button"
+                onClick={openCall}
+                className="p-2.5 hover:bg-teal-50 hover:text-teal-600 rounded-full transition"
+                title="Start call"
+              >
+                <Phone className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={openCall}
+                className="p-2.5 hover:bg-teal-50 hover:text-teal-600 rounded-full transition"
+                title="Video call"
+              >
+                <Video className="h-5 w-5" />
+              </button>
               <div className="w-px h-6 bg-slate-200 mx-1"></div>
               <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><MoreVertical className="h-5 w-5" /></button>
+            </div>
+          </div>
+
+          {/* Channel selector */}
+          <div className="px-6 pt-3 pb-1 bg-white/80 border-b border-slate-200 z-10">
+            <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setChannel("reception")}
+                className={`px-3 py-1.5 rounded-full transition ${
+                  channel === "reception"
+                    ? "bg-white text-teal-700 shadow-sm border border-teal-100"
+                    : "text-slate-500"
+                }`}
+              >
+                Receptionist
+              </button>
+              <button
+                type="button"
+                onClick={() => setChannel("care_team")}
+                className={`px-3 py-1.5 rounded-full transition ${
+                  channel === "care_team"
+                    ? "bg-white text-teal-700 shadow-sm border border-teal-100"
+                    : "text-slate-500"
+                }`}
+              >
+                Doctor & Nurse
+              </button>
             </div>
           </div>
 
@@ -285,12 +375,12 @@ export default function PatientChatPage() {
             <div className="flex items-end gap-3 max-w-5xl mx-auto">
               <button
                 className="p-3 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors flex-shrink-0 mb-1"
-                onClick={() => document.getElementById('chat-file')?.click()}
+                onClick={() => document.getElementById("chat-file")?.click()}
                 title="Attach file"
               >
                 <Paperclip className="h-6 w-6" />
               </button>
-              <input id="chat-file" type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <input id="chat-file" type="file" className="hidden" onChange={handleFileChange} />
 
               <div className="flex-1 bg-slate-100/80 rounded-3xl pb-1 px-1 flex flex-col border border-slate-200 focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-400 transition-all shadow-inner">
                 {file && (

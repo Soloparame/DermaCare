@@ -351,67 +351,148 @@ router.get("/appointments/:id/avs", requireAuth(["patient", "admin"]), async (re
   }
 });
 
-router.get("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req: Request, res: Response) => {
-  const appointmentId = String(req.params.appointmentId);
-  const role = req.user?.role ?? "patient";
-  try {
+router.get(
+  "/chat/:appointmentId/messages",
+  requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]),
+  async (req: Request, res: Response) => {
+    const appointmentId = String(req.params.appointmentId);
+    const role = req.user?.role ?? "patient";
+    // Backwards-compatible: support either ?channel= or legacy ?scope=
+    const rawChannel = (req.query.channel as string | undefined) ?? (req.query.scope as string | undefined);
+    const channel =
+      rawChannel === "reception" || rawChannel === "care_team" || rawChannel === "staff"
+        ? (rawChannel as "reception" | "care_team" | "staff")
+        : undefined;
+
+    const isReceptionist = role === "receptionist";
+
     try {
-      let query = "SELECT id, appointment_id as \"appointmentId\", sender_role as \"senderRole\", content, created_at as \"createdAt\", attachment_url as \"attachmentUrl\", attachment_type as \"attachmentType\", attachment_name as \"attachmentName\" FROM chat_messages WHERE appointment_id = $1";
-      const params = [appointmentId];
-      
-      if (role === "receptionist") {
-        query += " AND (sender_role = 'receptionist' OR sender_role = 'patient')";
+      let query =
+        'SELECT id, appointment_id as "appointmentId", sender_role as "senderRole", content, created_at as "createdAt", attachment_url as "attachmentUrl", attachment_type as "attachmentType", attachment_name as "attachmentName", channel FROM chat_messages WHERE appointment_id = $1';
+      const params: unknown[] = [appointmentId];
+
+      if (channel) {
+        query += " AND channel = $2";
+        params.push(channel);
       }
-      
+
+      // Hard safety for receptionists: never show care_team/staff messages that include doctor/nurse/admin
+      if (isReceptionist && !channel) {
+        // If no explicit channel requested, fall back to patient <-> receptionist only
+        query += " AND channel = 'reception'";
+      }
+
       query += " ORDER BY created_at ASC";
       const result = await pool.query(query, params);
-      return res.json(result.rows);
-    } catch {
+      return res.json(
+        result.rows.map((r) => ({
+          ...r,
+          channel: r.channel ?? "care_team",
+        }))
+      );
+    } catch (dbErr) {
+      console.error("❌ Database error loading chat messages:", dbErr);
+      // Fallback to in-memory only if DB fails – this is for dev safety, but ideally we want DB.
       const arr = mem.messages.get(appointmentId) ?? [];
       let visible = arr;
-      if (role === "receptionist") {
-        visible = arr.filter((m) => m.senderRole === "receptionist" || m.senderRole === "patient");
+
+      if (channel) {
+        visible = arr.filter((m) => (m.channel ?? "care_team") === channel);
+      } else if (isReceptionist) {
+        visible = arr.filter((m) => (m.channel ?? "care_team") === "reception");
       }
+
       return res.json(visible);
     }
-  } catch {
-    return res.status(500).json({ message: "Failed to load messages." });
   }
-});
+);
 
-router.post("/chat/:appointmentId/messages", requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]), async (req: Request, res: Response) => {
-  const role = req.user?.role ?? "patient";
-  const appointmentId = String(req.params.appointmentId);
-  const { content, attachmentUrl, attachmentType, attachmentName } = req.body as { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string };
-  if ((!content || content.trim() === "") && !attachmentUrl) return res.status(400).json({ message: "content or attachment required." });
-  try {
-    let msg;
-    try {
-      const result = await pool.query(
-        "INSERT INTO chat_messages (appointment_id, sender_role, content, attachment_url, attachment_type, attachment_name) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, appointment_id as \"appointmentId\", sender_role as \"senderRole\", content, created_at as \"createdAt\", attachment_url as \"attachmentUrl\", attachment_type as \"attachmentType\", attachment_name as \"attachmentName\"",
-        [appointmentId, role, content ?? null, attachmentUrl ?? null, attachmentType ?? null, attachmentName ?? null]
-      );
-      msg = result.rows[0];
-    } catch {
-      msg = mem.addMessage(appointmentId, role, content ?? "", { url: attachmentUrl, type: attachmentType, name: attachmentName });
+router.post(
+  "/chat/:appointmentId/messages",
+  requireAuth(["patient", "admin", "doctor", "nurse", "receptionist"]),
+  async (req: Request, res: Response) => {
+    const role = req.user?.role ?? "patient";
+    const appointmentId = String(req.params.appointmentId);
+    const { content, attachmentUrl, attachmentType, attachmentName, channel } = req.body as {
+      content?: string;
+      attachmentUrl?: string;
+      attachmentType?: "image" | "video" | "document";
+      attachmentName?: string;
+      channel?: string;
+    };
+    if ((!content || content.trim() === "") && !attachmentUrl) {
+      return res.status(400).json({ message: "content or attachment required." });
+    }
+
+    // Determine logical channel based on sender role and requested channel.
+    let resolvedChannel: "reception" | "care_team" | "staff" = "care_team";
+
+    if (role === "patient") {
+      if (channel === "reception") {
+        resolvedChannel = "reception";
+      } else {
+        // Default or explicit care_team – only allowed for confirmed/completed appointments
+        try {
+          const r = await pool.query("SELECT status FROM appointments WHERE id = $1", [appointmentId]);
+          const status = (r.rows[0]?.status as string | undefined) ?? "Pending";
+          if (!["Confirmed", "Completed"].includes(status)) {
+            return res.status(403).json({ message: "Chat with doctor/nurse is only available after confirmation." });
+          }
+        } catch {
+          // In-memory / fallback mode – allow but still tag as care_team
+        }
+        resolvedChannel = "care_team";
+      }
+    } else if (role === "receptionist") {
+      // Receptionist can either talk with patient (reception) or staff-only
+      resolvedChannel = channel === "reception" ? "reception" : "staff";
+    } else if (role === "doctor" || role === "nurse") {
+      // Clinical staff can have care_team or staff-only channels
+      resolvedChannel = channel === "staff" ? "staff" : "care_team";
+    } else if (role === "admin") {
+      resolvedChannel = (channel as typeof resolvedChannel) ?? "care_team";
     }
 
     try {
-      broadcast("chat_message", { 
-        appointmentId, 
-        senderRole: role, 
-        id: msg.id, 
-        content: msg.content, 
-        createdAt: msg.createdAt, 
-        attachmentUrl: msg.attachmentUrl, 
-        attachmentType: msg.attachmentType, 
-        attachmentName: msg.attachmentName 
-      });
-    } catch {}
-    return res.status(201).json(msg);
-  } catch {
-    return res.status(500).json({ message: "Failed to send message." });
+      let msg;
+      try {
+        const result = await pool.query(
+          'INSERT INTO chat_messages (appointment_id, sender_role, content, attachment_url, attachment_type, attachment_name, channel) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, appointment_id as "appointmentId", sender_role as "senderRole", content, created_at as "createdAt", attachment_url as "attachmentUrl", attachment_type as "attachmentType", attachment_name as "attachmentName", channel',
+          [appointmentId, role, content ?? null, attachmentUrl ?? null, attachmentType ?? null, attachmentName ?? null, resolvedChannel]
+        );
+        msg = result.rows[0];
+      } catch (dbErr) {
+        console.error("❌ Database error saving chat message:", dbErr);
+        msg = mem.addMessage(
+          appointmentId,
+          role,
+          content ?? "",
+          { url: attachmentUrl, type: attachmentType, name: attachmentName },
+          resolvedChannel
+        );
+      }
+
+      try {
+        broadcast("chat_message", {
+          appointmentId,
+          senderRole: role,
+          id: msg.id,
+          content: msg.content,
+          createdAt: msg.createdAt,
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          channel: (msg as { channel?: string }).channel ?? resolvedChannel,
+        });
+      } catch (sseErr) {
+        console.error("❌ SSE broadcast error:", sseErr);
+      }
+      return res.status(201).json(msg);
+    } catch (err) {
+      console.error("❌ Unhandled error in chat POST:", err);
+      return res.status(500).json({ message: "Failed to send message." });
+    }
   }
-});
+);
 
 export default router;

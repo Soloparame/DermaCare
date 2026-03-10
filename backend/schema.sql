@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   appointment_date TIMESTAMPTZ NOT NULL,
   mode TEXT NOT NULL DEFAULT 'In-person',
   status TEXT NOT NULL DEFAULT 'Pending',
+  nurse_user_id UUID REFERENCES users (id) ON DELETE SET NULL,
   meet_link TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -54,18 +55,32 @@ CREATE TABLE IF NOT EXISTS doctor_profiles (
   user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
   specialization TEXT DEFAULT 'Dermatology',
   bio TEXT,
-  consultation_fee NUMERIC(10, 2) DEFAULT 0
+  consultation_fee NUMERIC(10, 2) DEFAULT 0,
+  working_days TEXT[], -- e.g., ['Monday', 'Wednesday']
+  time_slots JSONB,    -- e.g., {"Monday": ["09:00", "10:00"]}
+  consultation_modes TEXT[] DEFAULT ARRAY['In-person']
 );
 
 CREATE TABLE IF NOT EXISTS patient_profiles (
   patient_id UUID PRIMARY KEY REFERENCES patients (id) ON DELETE CASCADE,
   address TEXT,
   emergency_contact TEXT,
-  allergies TEXT
+  allergies TEXT,
+  dermatology_history TEXT
 );
 
--- Visit reason for appointments
+-- Pre-consultation assessments / Triage
+CREATE TABLE IF NOT EXISTS preassessments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  answers_json JSONB NOT NULL,
+  triage_score INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Visit reason and metadata for appointments
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS visit_reason TEXT;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS checkin_at TIMESTAMPTZ;
 
 -- Medical images (skin photos for dermatology)
 CREATE TABLE IF NOT EXISTS medical_images (
@@ -74,6 +89,15 @@ CREATE TABLE IF NOT EXISTS medical_images (
   appointment_id UUID REFERENCES appointments (id) ON DELETE SET NULL,
   image_url TEXT NOT NULL,
   description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Case images (if different from medical_images, but let's unify or add it)
+CREATE TABLE IF NOT EXISTS case_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id TEXT NOT NULL, -- Can be appointment_id or a general case_id
+  file_url TEXT NOT NULL,
+  notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

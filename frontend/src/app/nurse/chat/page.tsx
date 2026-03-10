@@ -14,6 +14,7 @@ interface Msg {
   attachmentUrl?: string | null;
   attachmentType?: "image" | "video" | "document" | null;
   attachmentName?: string | null;
+  channel?: "reception" | "care_team" | "staff" | null;
 }
 interface Appointment {
   id: string;
@@ -46,7 +47,7 @@ export default function NurseChatPage() {
   const load = useCallback(async (id: string) => {
     if (!id) return;
     try {
-      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages`);
+      const data = await fetch<Msg[]>(`/patient/chat/${id}/messages?channel=care_team`);
       setMessages(data);
     } catch (e) {
       setError((e as ApiError).message ?? "Failed to load messages.");
@@ -56,6 +57,17 @@ export default function NurseChatPage() {
   useEffect(() => {
     if (appointmentId) void load(appointmentId);
   }, [appointmentId, load]);
+
+  const selectedAppointment = appointments.find((a) => a.id === appointmentId);
+
+  function openCall() {
+    if (!selectedAppointment) return;
+    const room = selectedAppointment.id;
+    const url = `https://meet.jit.si/dermacare-${room}`;
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
 
   async function send() {
     if (!appointmentId || (!text.trim() && !file)) return;
@@ -76,9 +88,18 @@ export default function NurseChatPage() {
             : "document";
         attachmentPayload = { attachmentUrl: dataUrl, attachmentType: type, attachmentName: file.name };
       }
-      const msg = await fetch<Msg, { content?: string; attachmentUrl?: string; attachmentType?: "image" | "video" | "document"; attachmentName?: string }>(`/patient/chat/${appointmentId}/messages`, {
+      const msg = await fetch<
+        Msg,
+        {
+          content?: string;
+          attachmentUrl?: string;
+          attachmentType?: "image" | "video" | "document";
+          attachmentName?: string;
+          channel?: string;
+        }
+      >(`/patient/chat/${appointmentId}/messages`, {
         method: "POST",
-        body: { content: text.trim() || undefined, ...attachmentPayload },
+        body: { content: text.trim() || undefined, ...attachmentPayload, channel: "care_team" },
       });
       setMessages((m) => (m.some((x) => x.id === msg.id) ? m : [...m, msg]));
       setText("");
@@ -100,7 +121,7 @@ export default function NurseChatPage() {
     es.addEventListener("chat_message", (ev) => {
       try {
         const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg>;
-        if (data.appointmentId === appointmentId) {
+        if (data.appointmentId === appointmentId && (data.channel ?? "care_team") === "care_team") {
           setMessages((m) => {
             const id = data.id ?? Math.random().toString(36).slice(2);
             if (m.some((x) => x.id === id)) return m;
@@ -125,8 +146,6 @@ export default function NurseChatPage() {
     });
     return () => es.close();
   }, [appointmentId, getToken]);
-
-  const selectedAppointment = appointments.find((a) => a.id === appointmentId);
 
   return (
     <div className="flex h-[calc(100vh-10rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/40">
@@ -199,8 +218,22 @@ export default function NurseChatPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 text-slate-400">
-              <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><Phone className="h-5 w-5" /></button>
-              <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><Video className="h-5 w-5" /></button>
+              <button
+                type="button"
+                onClick={openCall}
+                className="p-2.5 hover:bg-slate-100 rounded-full transition"
+                title="Start call"
+              >
+                <Phone className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={openCall}
+                className="p-2.5 hover:bg-slate-100 rounded-full transition"
+                title="Video call"
+              >
+                <Video className="h-5 w-5" />
+              </button>
               <div className="w-px h-6 bg-slate-200 mx-1"></div>
               <button className="p-2.5 hover:bg-slate-100 rounded-full transition"><MoreVertical className="h-5 w-5" /></button>
             </div>
