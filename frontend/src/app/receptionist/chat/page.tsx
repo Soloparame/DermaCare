@@ -14,6 +14,7 @@ interface Msg {
   attachmentUrl?: string | null;
   attachmentType?: "image" | "video" | "document" | null;
   attachmentName?: string | null;
+  channel?: "reception" | "care_team" | "staff" | null;
 }
 interface Appointment { id: string; date: string; time: string; patientName: string; doctorName: string }
 
@@ -119,6 +120,7 @@ const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg> & { channel?:
                 attachmentUrl: data.attachmentUrl ?? null,
                 attachmentType: (data.attachmentType as Msg["attachmentType"]) ?? null,
                 attachmentName: data.attachmentName ?? null,
+                channel: data.channel ?? "reception",
               },
             ];
           });
