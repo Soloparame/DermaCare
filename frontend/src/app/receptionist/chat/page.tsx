@@ -103,7 +103,8 @@ export default function ReceptionistChatPage() {
     const es = new EventSource(url);
     es.addEventListener("chat_message", (ev) => {
       try {
-const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg> & { channel?: string };        if (data.appointmentId === appointmentId && (data as any).channel === "reception") {
+const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg> & { channel?: string };        
+        if (data.appointmentId === appointmentId && (data as any).channel === "reception") {
           setMessages((m) => {
             const id = data.id ?? Math.random().toString(36).slice(2);
             if (m.some((x) => x.id === id)) return m;
