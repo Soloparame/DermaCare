@@ -9,6 +9,7 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist",
+    "noImplicitAny": false,
     "rootDir": "src",
     "resolveJsonModule": true
   },
