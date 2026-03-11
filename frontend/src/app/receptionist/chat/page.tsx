@@ -16,6 +16,20 @@ interface Msg {
   attachmentName?: string | null;
   channel?: "reception" | "care_team" | "staff" | null;
 }
+
+/** SSE chat_message payload - backend may send channel */
+interface ChatMessageEvent {
+  id?: string;
+  appointmentId?: string;
+  senderRole?: string;
+  content?: string;
+  createdAt?: string;
+  attachmentUrl?: string | null;
+  attachmentType?: "image" | "video" | "document" | null;
+  attachmentName?: string | null;
+  channel?: string;
+}
+
 interface Appointment { id: string; date: string; time: string; patientName: string; doctorName: string }
 
 export default function ReceptionistChatPage() {
@@ -104,8 +118,8 @@ export default function ReceptionistChatPage() {
     const es = new EventSource(url);
     es.addEventListener("chat_message", (ev) => {
       try {
-const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg> & { channel?: string };        
-        if (data.appointmentId === appointmentId && (data as any).channel === "reception") {
+        const data = JSON.parse((ev as MessageEvent).data) as ChatMessageEvent;
+        if (data.appointmentId === appointmentId && data.channel === "reception") {
           setMessages((m) => {
             const id = data.id ?? Math.random().toString(36).slice(2);
             if (m.some((x) => x.id === id)) return m;
@@ -113,14 +127,14 @@ const data = JSON.parse((ev as MessageEvent).data) as Partial<Msg> & { channel?:
               ...m,
               {
                 id,
-                appointmentId,
+                appointmentId: appointmentId,
                 senderRole: data.senderRole ?? "unknown",
                 content: data.content ?? "",
                 createdAt: data.createdAt ?? new Date().toISOString(),
                 attachmentUrl: data.attachmentUrl ?? null,
                 attachmentType: (data.attachmentType as Msg["attachmentType"]) ?? null,
                 attachmentName: data.attachmentName ?? null,
-                channel: data.channel ?? "reception",
+                channel: (data.channel ?? "reception") as Msg["channel"],
               },
             ];
           });
